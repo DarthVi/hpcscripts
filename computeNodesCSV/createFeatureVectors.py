@@ -34,6 +34,53 @@ def getSumChanges(arr):
         #if there are n different values, then the value changes n - 1 times
         return number_of_different_values - 1
 
+def createColumnsWithDummyValues(df, old_df, numfeatures):
+    for column in old_df.columns:
+        if column != 'label':
+            df['mean_' + column] = 1
+            df['std_' +  column] = 1
+            if(args.features == 11):
+                df['perc5_' + column] = 1
+            df['perc25_' + column] = 1
+            df['perc75_' + column] = 1
+            if(args.features == 11):
+                df['perc95_' + column] = 1
+            df['sumdiff_' +  column] = 1
+            df['last_' + column] = 1
+            if(args.features == 11):
+                df['min_' + column] = 1
+                df['max_' + column] = 1
+                df['median_' + column] = 1
+        else:
+            df['label'] = 1
+    return df
+
+
+def setColumnStats(new_df, old_df, column, row, nwindow, numfeatures):
+    if column != 'label':
+        new_df.loc[row]['mean_' + column] = old_df[:nwindow][column].mean()
+        new_df.loc[row]['std_' +  column] = old_df[:nwindow][column].std()
+        if(args.features == 11):
+            new_df.loc[row]['perc5_' + column] = old_df[:nwindow ][column].quantile(0.05)
+        new_df.loc[row]['perc25_' + column] = old_df[:nwindow][column].quantile(0.25)
+        new_df.loc[row]['perc75_' + column] = old_df[:nwindow][column].quantile(0.75)
+        if(args.features == 11):
+            new_df.loc[row]['perc95_' + column] = old_df[:nwindow][column].quantile(0.95)
+        values = old_df[:nwindow][column].to_numpy()
+        sumdiff_value = getSumChanges(values)
+        new_df.loc[row]['sumdiff_' +  column] = sumdiff_value
+        new_df.loc[row]['last_' + column] = old_df.loc[nwindow-1][column] #get last value
+        if(args.features == 11):
+            new_df.loc[row]['min_' + column] = old_df[:nwindow][column].min()
+            new_df.loc[row]['max_' + column] = old_df[:nwindow][column].max()
+            new_df.loc[row]['median_' + column] = old_df[:nwindow][column].median()
+    else:
+        values = old_df[:nwindow][column].to_numpy()
+        label = getMostRecentFault(values)
+        new_df.loc[row]['label'] = label
+
+    #return new_df
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -64,30 +111,17 @@ if __name__ == '__main__':
             orig_df.reset_index(drop=True, inplace=True)
             #initialize new dataframe to empty timeseries
             new_df = pd.DataFrame(index=orig_df.index)
-            new_df['placeholder'] = 1
-            #group by with a window of 60s, the column placeholder is just a trick to make groupby work, we can remove it afterwards
-            new_df = new_df.groupby(new_df.index // num_timewindow).mean()
-            new_df.drop('placeholder', axis=1, inplace=True)
+            new_df = createColumnsWithDummyValues(new_df, orig_df, args.features)
+            #trick to have a moving rolling 60 seconds window of step size 1
+            new_df_len_index = len(new_df) - (num_timewindow - 1)
+            new_df = new_df[:new_df_len_index]
+            #print(new_df)
 
-            #for each column, calculate the indicators defined in the LRZ report of March 2020
-            for column in tqdm(orig_df.columns):
-                if column != 'label':
-                    new_df['mean_' + column] = orig_df[column].groupby(orig_df.index // num_timewindow).mean()
-                    new_df['std_' +  column] = orig_df[column].groupby(orig_df.index // num_timewindow).std()
-                    if(args.features == 11):
-                        new_df['perc5_' + column] = orig_df[column].groupby(orig_df.index // num_timewindow).quantile(0.05)
-                    new_df['perc25_' + column] = orig_df[column].groupby(orig_df.index // num_timewindow).quantile(0.25)
-                    new_df['perc75_' + column] = orig_df[column].groupby(orig_df.index // num_timewindow).quantile(0.75)
-                    if(args.features == 11):
-                        new_df['perc95_' + column] = orig_df[column].groupby(orig_df.index // num_timewindow).quantile(0.95)
-                    new_df['sumdiff_' +  column] = orig_df[column].groupby(orig_df.index // num_timewindow).agg(getSumChanges)
-                    new_df['last_' + column] = orig_df[column].groupby(orig_df.index // num_timewindow).last()
-                    if(args.features == 11):
-                        new_df['min_' + column] = orig_df[column].groupby(orig_df.index // num_timewindow).min()
-                        new_df['max_' + column] = orig_df[column].groupby(orig_df.index // num_timewindow).max()
-                        new_df['median_' + column] = orig_df[column].groupby(orig_df.index // num_timewindow).median()
-                else:
-                    new_df['label'] = orig_df[column].groupby(orig_df.index // num_timewindow).agg(getMostRecentFault)
+            for row in tqdm(range(new_df_len_index)):
+                #for each column, calculate the indicators defined in the LRZ report of March 2020
+                for column in orig_df.columns:
+                    setColumnStats(new_df, orig_df, column, row, num_timewindow, args.features)
+                orig_df = orig_df.shift(-1).dropna()
 
             #put label as last column
             label_col = new_df.pop('label')
