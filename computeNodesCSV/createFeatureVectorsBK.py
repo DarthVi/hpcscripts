@@ -86,6 +86,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-w", "--timewindow", type=str, default='60s') 
     parser.add_argument("-f", "--features", type=int, default=6)
+    parser.add_argument("-s", "--stepsize", type=int, default=1)
     args = parser.parse_args()
 
     if args.features != 6 and args.features != 11:
@@ -121,7 +122,7 @@ if __name__ == '__main__':
                 #for each column, calculate the indicators defined in the LRZ report of March 2020
                 for column in orig_df.columns:
                     setColumnStats(new_df, orig_df, column, row, num_timewindow, args.features)
-                orig_df = orig_df.shift(-1).dropna()
+                orig_df = orig_df.shift(-args.stepsize).dropna()
 
             #put label as last column
             label_col = new_df.pop('label')
