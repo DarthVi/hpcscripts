@@ -24,15 +24,11 @@ def getMostRecentFault(arr):
 
 """
 Get the sum of the changes within the array-like object; used to get
-the sum of the changes within the aggregation window during resampling
+the sum of the changes within the aggregation window during rolling window operations.
 """
 def getSumChanges(arr):
-    number_of_different_values = len(np.unique(arr))
-    if number_of_different_values == 1:
-        return 0
-    else:
-        #if there are n different values, then the value changes n - 1 times
-        return number_of_different_values - 1
+    return np.sum(np.diff(arr))
+
 
 if __name__ == '__main__':
 

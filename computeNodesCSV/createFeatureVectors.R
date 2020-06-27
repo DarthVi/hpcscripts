@@ -7,6 +7,7 @@ library("data.table")
 library("progress")
 library("dplyr")
 library("argparser")
+library("zoo")
 
 
 getMostRecentFault = function(vec){
@@ -29,12 +30,7 @@ getMostRecentFault = function(vec){
 
 #Get the sum of the changes within the array-like object
 getSumChanges = function(vec){
-	number_of_different_values <- length(unique(vec))
-	if (number_of_different_values == 1){
-		return(0)
-	} else {
-		return(number_of_different_values - 1)
-	}
+	sum(diff(vec))
 }
 
 p <- arg_parser("Program to create feature vectors for each compute node")
@@ -72,11 +68,15 @@ for (k in 1:length(file_list))
 	print("Computing new dataframe")
 
 	#create progress bar
-	pb <- progress_bar$new(format = " computing [:bar] :percent eta: :eta",total = 100, clear = FALSE)
+	pb <- progress_bar$new(format = " computing [:bar] :percent eta: :eta",total = orig_col_length, clear = FALSE, width=100)
+	pb$tick(0)
 	#loop over columns
 	#for each column, calculate the indicators defined in the LRZ report of March 2020
 	for (c in 1:orig_col_length)
 	{
+		#update progress bar
+		pb$tick()
+
 		df_col <- select(orig_df, columns[c])
 		if (columns[c] != "label")
 		{
@@ -85,7 +85,7 @@ for (k in 1:length(file_list))
 			new_df <- cbind(new_df, ans)
 
 			ans <- data.table(rollapply(df_col, argv$window, FUN=sd, by=argv$step))
-			setnames(ans, columns[c], paste00("std_", columns[c]))
+			setnames(ans, columns[c], paste0("std_", columns[c]))
 			new_df <- cbind(new_df, ans)
 
 			if (argv$feature == 11){
@@ -108,11 +108,11 @@ for (k in 1:length(file_list))
 				new_df <- cbind(new_df, ans)
 			}
 
-			ns <- data.table(rollapply(df_col, argv$window, by=argv$step, FUN=getSumChanges))
+			ans <- data.table(rollapply(df_col, argv$window, by=argv$step, FUN=getSumChanges))
 			setnames(ans, columns[c], paste0("sumdiff_", columns[c]))
 			new_df <- cbind(new_df, ans)
 
-			ns <- data.table(rollapply(df_col, argv$window, by=argv$step, FUN="tail", n=1))
+			ans <- data.table(rollapply(df_col, argv$window, by=argv$step, FUN="tail", n=1))
 			setnames(ans, columns[c], paste0("last_", columns[c]))
 			new_df <- cbind(new_df, ans)
 
@@ -138,9 +138,10 @@ for (k in 1:length(file_list))
 
 		}
 
-		#update progress bar
-		pb$tick()
 	}
+
+	#put label as last column
+	new_df <- relocate(new_df, "label", .after=last_col())
 
 	print("Saving dataframe")
 	fwrite(new_df, paste0(substr(file_list[k], 1, nchar(file_list[k])-4), "_", argv$feature, "f_", argv$window, "s_", argv$step, "step.csv"))
