@@ -8,6 +8,7 @@ library("progress")
 library("dplyr")
 library("argparser")
 library("zoo")
+library("bit64")
 
 
 getMostRecentFault = function(vec){
