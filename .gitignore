@@ -3,3 +3,4 @@ computeNodesCSV/*.csv
 data1/*.csv
 data1/computeNodesCSV/*.csv
 .ipynb_checkpoints/*
+*.fuse_hidden.*
