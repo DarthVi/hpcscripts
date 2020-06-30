@@ -1,7 +1,5 @@
 """
 2020-06-30 10:30
-
-@author: Vito Vincenzo Covella
 """
 
 import numpy as np
