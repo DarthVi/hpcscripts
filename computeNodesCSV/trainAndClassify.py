@@ -5,11 +5,8 @@
 import numpy as np
 import pandas as pd
 from numpy import random
-from sklearn.model_selection import cross_validate
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import make_scorer, roc_auc_score, f1_score
-from sklearn.model_selection import train_test_split
-import argparse
+from sklearn.metrics import f1_score
 import sys
 import matplotlib.pyplot as plt
 import os
