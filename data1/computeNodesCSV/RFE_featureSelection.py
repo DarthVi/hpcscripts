@@ -1,5 +1,5 @@
 """
-2020-07-04 15:25
+2020-07-06 10:43
 
 @author: Vito Vincenzo Covella
 """
@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from numpy import random
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import RFE
 from sklearn.metrics import f1_score
 import sys
 import matplotlib.pyplot as plt
@@ -46,7 +47,6 @@ def plot_bar_x(measureType, key, value):
     fig1.savefig('%s.png'%(measureType), bbox_inches='tight')
 
 if __name__ == '__main__':
-
     random.seed(42)
 
     if len(sys.argv) != 3:
@@ -58,10 +58,8 @@ if __name__ == '__main__':
     input_file = str(sys.argv[1])
     input_name = input_file.split('.')[0]
     nodename = input_file.split('_')[0].split('/')[-1]
-    fileN_mostImportant = input_name + "_result_" + str(numImportantFeatures) + "mostImportant.txt"
-    featureFile = input_name + "_mostImportantFeatures.txt"
-
-    #print(nodename)
+    fileN_mostImportant = input_name + "_result_RFE_" + str(numImportantFeatures) + "mostImportant.txt"
+    featureFile = input_name + "_RFE_mostImportantFeatures.txt"
 
     data = pd.read_csv(input_file)
     #all the columns except the label one
@@ -77,47 +75,44 @@ if __name__ == '__main__':
     numTrain = int(0.6*len(features))
     trainData = features[:numTrain]
     trainLbl = labels[:numTrain]
-    #testData = features[numTrain:]
-    #testLbl = labels[numTrain:]
-
-    clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=-1, random_state=42)
-
-
-    with open(featureFile, 'w') as out:
-        out.write('- Most important features:\n')
-
-    clf.fit(trainData, trainLbl)
-    
-    importances = clf.feature_importances_
-    indices = np.argsort(importances)[::-1]
-    print('- Most important features:')
-    with open(featureFile, 'a') as out:
-       for idx in range(len(indices)):
-           metric = indices[idx]
-           print('---- %s: %s' % (metricKeys[metric], importances[metric]))
-           out.write('---- %s: %s\n' % (metricKeys[metric], importances[metric]))
-
-    #retrain with most important features
-    mostImportantColumns = []
-    for i in range(numImportantFeatures):
-        metric = indices[i]
-        mostImportantColumns.append(metricKeys[metric])
-
-
-    #select features vectors using only the k most important features
-    features = data[mostImportantColumns]
-    features = features.to_numpy()
-    trainData = features[:numTrain]
-    trainLbl = labels[:numTrain]
     testData = features[numTrain:]
     testLbl = labels[numTrain:]
 
     clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=-1, random_state=42)
 
-    with open(fileN_mostImportant, 'w') as out:
-        out.write('- Classifier: %s\n' % clf.__class__.__name__)
+    #initialize RFE with RF classifier and numImportantFeatures to select
+    rfe = RFE(clf, n_features_to_select=numImportantFeatures)
+
+    X_rfe = rfe.fit_transform(trainData, trainLbl)
+
+    #Fitting the data to model
+    clf.fit(X_rfe, trainLbl)
+    temp = pd.Series(rfe.support_,index = metricKeys)
+    selected_features_rfe = temp[temp==True].index
+    print("Selected features with RFE:")
+    print(selected_features_rfe)
+
+    with open(featureFile, 'w') as out:
+        out.write('- Most important features:\n')
+
+    #save most important columns in a text file
+    with open(featureFile, 'a') as out:
+        for col in selected_features_rfe:
+            out.write('---- %s\n' % col)
+
+    #select new data using only the most important columns
+    features = data[selected_features_rfe.tolist()]
+    features = features.to_numpy()
+    #labels are the same as before (see above)
+    trainData = features[:numTrain]
+    #trainLbl are the same as before, no need to recompute them
+    testData = features[numTrain:]
+    #testLbl are the same as before, no need to recompute them
 
     F = []
+
+    with open(fileN_mostImportant, 'w') as out:
+        out.write('- Classifier: %s\n' % clf.__class__.__name__)
 
     clf.fit(trainData, trainLbl)
     pred = clf.predict(testData)
@@ -136,8 +131,6 @@ if __name__ == '__main__':
         with open(fileN_mostImportant, 'a') as out:
             out.write('Fault: %d,  F1: %f.\n'%(l,f1))
 
-
-
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
-    measureType = input_name + "_result_" + str(numImportantFeatures) + "mostImportant"
+    measureType = input_name + "_result_RFE" + str(numImportantFeatures) + "mostImportant"
     plot_bar_x(measureType, keys, F)

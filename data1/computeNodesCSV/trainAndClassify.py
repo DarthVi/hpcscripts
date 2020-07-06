@@ -1,7 +1,5 @@
 """
-2020-07-04 15:25
-
-@author: Vito Vincenzo Covella
+2020-06-30 10:30
 """
 
 import numpy as np
@@ -49,17 +47,14 @@ if __name__ == '__main__':
 
     random.seed(42)
 
-    if len(sys.argv) != 3:
-        print("Please insert a file path to analyze as argument and the number of important features to select")
+    if len(sys.argv) != 2:
+        print("Please insert a file path to analyze as argument")
         exit(1)
-
-    numImportantFeatures = int(str(sys.argv[2]))
 
     input_file = str(sys.argv[1])
     input_name = input_file.split('.')[0]
     nodename = input_file.split('_')[0].split('/')[-1]
-    fileN_mostImportant = input_name + "_result_" + str(numImportantFeatures) + "mostImportant.txt"
-    featureFile = input_name + "_mostImportantFeatures.txt"
+    split60out = input_name + "_result_split60-40.txt"
 
     #print(nodename)
 
@@ -77,47 +72,16 @@ if __name__ == '__main__':
     numTrain = int(0.6*len(features))
     trainData = features[:numTrain]
     trainLbl = labels[:numTrain]
-    #testData = features[numTrain:]
-    #testLbl = labels[numTrain:]
-
-    clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=-1, random_state=42)
-
-
-    with open(featureFile, 'w') as out:
-        out.write('- Most important features:\n')
-
-    clf.fit(trainData, trainLbl)
-    
-    importances = clf.feature_importances_
-    indices = np.argsort(importances)[::-1]
-    print('- Most important features:')
-    with open(featureFile, 'a') as out:
-       for idx in range(len(indices)):
-           metric = indices[idx]
-           print('---- %s: %s' % (metricKeys[metric], importances[metric]))
-           out.write('---- %s: %s\n' % (metricKeys[metric], importances[metric]))
-
-    #retrain with most important features
-    mostImportantColumns = []
-    for i in range(numImportantFeatures):
-        metric = indices[i]
-        mostImportantColumns.append(metricKeys[metric])
-
-
-    #select features vectors using only the k most important features
-    features = data[mostImportantColumns]
-    features = features.to_numpy()
-    trainData = features[:numTrain]
-    trainLbl = labels[:numTrain]
     testData = features[numTrain:]
     testLbl = labels[numTrain:]
 
+    #list to store f1 values
+    F = []
+
     clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=-1, random_state=42)
 
-    with open(fileN_mostImportant, 'w') as out:
+    with open(split60out, 'w') as out:
         out.write('- Classifier: %s\n' % clf.__class__.__name__)
-
-    F = []
 
     clf.fit(trainData, trainLbl)
     pred = clf.predict(testData)
@@ -133,11 +97,9 @@ if __name__ == '__main__':
         f1 = f1_score(lab_tmp, pred_tmp, average = 'micro')
         F.append(f1)
         print('Fault: %d,  F1: %f.\n'%(l,f1))
-        with open(fileN_mostImportant, 'a') as out:
+        with open(split60out, 'a') as out:
             out.write('Fault: %d,  F1: %f.\n'%(l,f1))
 
-
-
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
-    measureType = input_name + "_result_" + str(numImportantFeatures) + "mostImportant"
+    measureType = input_name + "_result_split60-40"
     plot_bar_x(measureType, keys, F)

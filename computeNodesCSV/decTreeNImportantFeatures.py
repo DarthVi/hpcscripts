@@ -1,5 +1,5 @@
 """
-2020-07-04 15:25
+2020-07-04 17:07
 
 @author: Vito Vincenzo Covella
 """
@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from numpy import random
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import f1_score
 import sys
 import matplotlib.pyplot as plt
@@ -58,8 +59,8 @@ if __name__ == '__main__':
     input_file = str(sys.argv[1])
     input_name = input_file.split('.')[0]
     nodename = input_file.split('_')[0].split('/')[-1]
-    fileN_mostImportant = input_name + "_result_" + str(numImportantFeatures) + "mostImportant.txt"
-    featureFile = input_name + "_mostImportantFeatures.txt"
+    fileN_mostImportant = input_name + "_result_decTreeFreature_" + str(numImportantFeatures) + "mostImportant.txt"
+    featureFile = input_name + "_decTree_mostImportantFeatures.txt"
 
     #print(nodename)
 
@@ -80,7 +81,7 @@ if __name__ == '__main__':
     #testData = features[numTrain:]
     #testLbl = labels[numTrain:]
 
-    clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=-1, random_state=42)
+    clf = DecisionTreeClassifier(random_state=42)
 
 
     with open(featureFile, 'w') as out:
@@ -139,5 +140,5 @@ if __name__ == '__main__':
 
 
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
-    measureType = input_name + "_result_" + str(numImportantFeatures) + "mostImportant"
+    measureType = input_name + "_result_decTreeFeature" + str(numImportantFeatures) + "mostImportant"
     plot_bar_x(measureType, keys, F)
