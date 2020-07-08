@@ -18,7 +18,7 @@ missing values
 """
 def monotonicityCheck(df, interp_method):
     firstColumn = df.columns[0]
-    if (df[firstColumn].is_monotonic_increasing or df[firstColumn].is_monotonic_decreasing) and ('applicationLabel' not in firstColumn and 'faultLabel' not in firstColumn and 'faultPred' not in firstColumn):
+    if df[firstColumn].is_monotonic_increasing or df[firstColumn].is_monotonic_decreasing:
         df = df.diff()
         df = df.interpolate(method=interp_method, axis=0, limit_direction='backward')
     return df
@@ -37,14 +37,6 @@ def transformCSV(csv):
     csv = csv.groupby(csv.index).mean()
     return csv
 
-"""
-Fills the NaN values of specific columns in forward and backward way
-"""
-def fillLabelNA(df, column):
-    if column in df.columns:
-        df[column] = df[column].ffill().bfill()
-    return df
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--interpolationmethod", type=str, default='linear') 
@@ -57,7 +49,6 @@ if __name__ == '__main__':
         nodes = list(map(str.strip, compnodes_file))
 
     main_df = None
-    labelCol = ['experiment/applicationLabel', 'faultPred', 'faultLabel']
 
     for node in nodes:
         print("Processing node ", node)
@@ -77,18 +68,10 @@ if __name__ == '__main__':
             second_df = monotonicityCheck(second_df, args.interpolationmethod)
             #align the two CSV on the Time index
             main_df, second_df = main_df.align(second_df, axis=0)
-            #check if label columns are presente and fills NaN values backward and forward
-            for col in labelCol:
-                main_df = fillLabelNA(main_df, col)
-
             #replace NaN values with interpolated ones (along the column)
             main_df.interpolate(method=args.interpolationmethod, axis=0, inplace=True)
             #fill NaN in first row if present
             main_df.bfill(inplace=True)
-            #check if label columns are presente and fills NaN values backward and forward
-            for col in labelCol:
-                second_df = fillLabelNA(second_df, col)
-
             second_df.interpolate(method=args.interpolationmethod, axis=0, inplace=True)
             second_df.bfill(inplace=True)
             main_df = pd.merge(main_df, second_df, left_index=True, right_index=True)

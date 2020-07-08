@@ -86,7 +86,7 @@ def main():
     clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=None, random_state=42)
 
     scorers = getScorerObjects(labels)
-    scores = cross_validate(clf, features, labels, cv=5, scoring=scorers, n_jobs=-1)
+    scores = cross_validate(clf, features, labels, cv=5, scoring=scorers, n_jobs=None)
 
     #print(scores)
 
