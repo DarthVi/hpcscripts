@@ -11,6 +11,7 @@ import pathlib
 from pathlib import Path
 import re
 from tqdm import tqdm
+import time
 
 """
 Check if dataframe is monotone. If it is, convert it to the delta equivalent and interpolate
@@ -47,7 +48,8 @@ def fillLabelNA(df, column):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--interpolationmethod", type=str, default='linear') 
+    parser.add_argument("-i", "--interpolationmethod", type=str, default='linear')
+    parser.add_argument("-t", "--threshold", type=int, default=200) 
     args = parser.parse_args()
     #path of the folder in which this script is located
     here = pathlib.Path(__file__).parent
@@ -62,6 +64,7 @@ if __name__ == '__main__':
     for node in nodes:
         print("Processing node ", node)
         csvlist = []
+        dflist = []
 
         for file_entry in here.iterdir():
             if file_entry.is_file() and file_entry.suffix == '.csv' and node in file_entry.name:
@@ -77,10 +80,24 @@ if __name__ == '__main__':
             second_df = monotonicityCheck(second_df, args.interpolationmethod)
             #align the two CSV on the Time index
             main_df, second_df = main_df.align(second_df, axis=0)
-            main_df = pd.merge(main_df, second_df, left_index=True, right_index=True)
+
+            dflist.append(second_df)
+            
+            if(len(dflist) >= args.threshold):
+                dflist.insert(0, main_df)
+                main_df = pd.concat(dflist, axis=1)
+                dflist = []
+            #main_df = pd.merge(main_df, second_df, left_index=True, right_index=True)
+
+        #if append list is not empty (check if there are trailing dataframe within the list which is however shorter than threshold)
+        if dflist:
+            dflist.insert(0, main_df)
+            main_df = pd.concat(dflist, axis=1)
+            dflist = []
 
 
         print("Interpolating")
+        start_time = time.time()
         #check if label columns are presente and fills NaN values backward and forward
         for col in labelCol:
             main_df = fillLabelNA(main_df, col)
@@ -89,7 +106,12 @@ if __name__ == '__main__':
         main_df.interpolate(method=args.interpolationmethod, axis=0, inplace=True)
         #fill NaN in first row if present
         main_df.bfill(inplace=True)
+        end_time = time.time()
+        print("Execution of last step in seconds: ", end_time - start_time)
 
         print("Saving " + node + ".csv" + " file")
+        start_time = time.time()
         main_df.to_csv(here.joinpath("computeNodesCSV/" + node + ".csv"))
         print("Saving done")
+        end_time = time.time()
+        print("Execution of last step in seconds: ", end_time - start_time)
