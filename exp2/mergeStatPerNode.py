@@ -77,18 +77,22 @@ if __name__ == '__main__':
             second_df = monotonicityCheck(second_df, args.interpolationmethod)
             #align the two CSV on the Time index
             main_df, second_df = main_df.align(second_df, axis=0)
-            main_df = pd.merge(main_df, second_df, left_index=True, right_index=True)
+            #check if label columns are presente and fills NaN values backward and forward
+            for col in labelCol:
+                main_df = fillLabelNA(main_df, col)
 
+            #replace NaN values with interpolated ones (along the column)
+            main_df.interpolate(method=args.interpolationmethod, axis=0, inplace=True)
+            #fill NaN in first row if present
+            main_df.bfill(inplace=True)
+            #check if label columns are presente and fills NaN values backward and forward
+            for col in labelCol:
+                second_df = fillLabelNA(second_df, col)
 
-        print("Interpolating")
-        #check if label columns are presente and fills NaN values backward and forward
-        for col in labelCol:
-            main_df = fillLabelNA(main_df, col)
-
-        #replace NaN values with interpolated ones (along the column)
-        main_df.interpolate(method=args.interpolationmethod, axis=0, inplace=True)
-        #fill NaN in first row if present
-        main_df.bfill(inplace=True)
+            second_df.interpolate(method=args.interpolationmethod, axis=0, inplace=True)
+            second_df.bfill(inplace=True)
+            main_df = pd.concat((main_df, second_df), axis=1)
+            #main_df = pd.merge(main_df, second_df, left_index=True, right_index=True)
 
         print("Saving " + node + ".csv" + " file")
         main_df.to_csv(here.joinpath("computeNodesCSV/" + node + ".csv"))
