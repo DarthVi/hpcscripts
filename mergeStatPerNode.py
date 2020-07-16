@@ -11,6 +11,7 @@ import pathlib
 from pathlib import Path
 import re
 from tqdm import tqdm
+import time
 
 """
 Check if dataframe is monotone. If it is, convert it to the delta equivalent and interpolate
@@ -49,6 +50,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--interpolationmethod", type=str, default='linear')
     parser.add_argument("-o", "--order", type=int, default=2) 
+    parser.add_argument("-t", "--threshold", type=int, default=200)
     args = parser.parse_args()
     #path of the folder in which this script is located
     here = pathlib.Path(__file__).parent
@@ -63,6 +65,7 @@ if __name__ == '__main__':
     for node in nodes:
         print("Processing node ", node)
         csvlist = []
+        dflist = []
 
         for file_entry in here.iterdir():
             if file_entry.is_file() and file_entry.suffix == '.csv' and node in file_entry.name:
@@ -76,11 +79,24 @@ if __name__ == '__main__':
             second_df = pd.read_csv(csv, header=0)
             second_df = transformCSV(second_df)
             second_df = monotonicityCheck(second_df, args.interpolationmethod, args.order)
+            dflist.append(second_df)
+            if len(dflist) >= args.threshold:
+                main_df = main_df.join(dflist, how="outer")
+                dflist = []
             #align the two CSV on the Time index
-            main_df, second_df = main_df.align(second_df, axis=0)
-            main_df = pd.merge(main_df, second_df, left_index=True, right_index=True)
+            #main_df, second_df = main_df.align(second_df, axis=0)
+            #main_df = pd.merge(main_df, second_df, left_index=True, right_index=True)
 
+        #if dflist is not empty, join with remaining dataframe
+        if dflist:
+            starting_time = time.time()
+            print("Joining and aligning trailing dataframes")
+            main_df = main_df.join(dflist, how="outer")
+            dflist = []
+            ending_time = time.time()
+            print("Execution time in seconds: ", ending_time - starting_time)
 
+        starting_time = time.time()
         print("Interpolating")
         #check if label columns are presente and fills NaN values backward and forward
         for col in labelCol:
@@ -90,7 +106,12 @@ if __name__ == '__main__':
         main_df.interpolate(method=args.interpolationmethod, axis=0, inplace=True, order=args.order)
         #fill NaN in first row if present
         main_df.bfill(inplace=True)
+        ending_time = time.time()
+        print("Execution time in seconds: ", ending_time - starting_time)
 
+        starting_time = time.time()
         print("Saving " + node + ".csv" + " file")
         main_df.to_csv(here.joinpath("computeNodesCSV/" + node + ".csv"))
         print("Saving done")
+        ending_time = time.time()
+        print("Execution time in seconds: ", ending_time - starting_time)
