@@ -12,6 +12,7 @@ from tqdm import tqdm
 import argparse
 import multiprocessing
 import itertools
+from re import search
 
 """grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"""
 def grouper(n, iterable, fillvalue=None):
@@ -41,26 +42,33 @@ def getSumChanges(arr):
 def calculateIndicators(column, orig_df, window, step, numfeatures):
     new_df = pd.DataFrame(index=orig_df.index)
     new_df['placeholder'] = 1
-    new_df = new_df.rolling(window).mean()[::step]
+    new_df = new_df.rolling(window).mean()[::step].dropna().reset_index(drop=True)
     new_df.drop('placeholder', axis=1, inplace=True)
     if column != None:
-        if column != 'label':
-            new_df['mean_' + column] = orig_df.rolling(window).mean()[::step]
-            new_df['std_' +  column] = orig_df.rolling(window).std()[::step]
+        if search("cpu[0-9]", column):
             if(numfeatures == 11):
-                new_df['perc5_' + column] = orig_df.rolling(window).quantile(0.05)[::step]
-            new_df['perc25_' + column] = orig_df.rolling(window).quantile(0.25)[::step]
-            new_df['perc75_' + column] = orig_df.rolling(window).quantile(0.75)[::step]
+                new_df['perc5_' + column] = orig_df.rolling(window).quantile(0.05)[::step].dropna().reset_index(drop=True)
+            new_df['perc25_' + column] = orig_df.rolling(window).quantile(0.25)[::step].dropna().reset_index(drop=True)
+            new_df['perc75_' + column] = orig_df.rolling(window).quantile(0.75)[::step].dropna().reset_index(drop=True)
             if(numfeatures == 11):
-                new_df['perc95_' + column] = orig_df.rolling(window).quantile(0.95)[::step]
-            new_df['sumdiff_' +  column] = orig_df.rolling(window).agg(getSumChanges)[::step]
-            new_df['last_' + column] = orig_df.rolling(window).agg(lambda x: np.asarray(x)[-1])[::step]
+                new_df['perc95_' + column] = orig_df.rolling(window).quantile(0.95)[::step].dropna().reset_index(drop=True)
+        elif column != 'label':
+            new_df['mean_' + column] = orig_df.rolling(window).mean()[::step].dropna().reset_index(drop=True)
+            new_df['std_' +  column] = orig_df.rolling(window).std()[::step].dropna().reset_index(drop=True)
             if(numfeatures == 11):
-                new_df['min_' + column] = orig_df.rolling(window).min()[::step]
-                new_df['max_' + column] = orig_df.rolling(window).max()[::step]
-                new_df['median_' + column] = orig_df.rolling(window).median()[::step]
+                new_df['perc5_' + column] = orig_df.rolling(window).quantile(0.05)[::step].dropna().reset_index(drop=True)
+            new_df['perc25_' + column] = orig_df.rolling(window).quantile(0.25)[::step].dropna().reset_index(drop=True)
+            new_df['perc75_' + column] = orig_df.rolling(window).quantile(0.75)[::step].dropna().reset_index(drop=True)
+            if(numfeatures == 11):
+                new_df['perc95_' + column] = orig_df.rolling(window).quantile(0.95)[::step].dropna().reset_index(drop=True)
+            new_df['sumdiff_' +  column] = orig_df.rolling(window).agg(getSumChanges)[::step].dropna().reset_index(drop=True)
+            new_df['last_' + column] = orig_df.rolling(window).agg(lambda x: np.asarray(x)[-1])[::step].dropna().reset_index(drop=True)
+            if(numfeatures == 11):
+                new_df['min_' + column] = orig_df.rolling(window).min()[::step].dropna().reset_index(drop=True)
+                new_df['max_' + column] = orig_df.rolling(window).max()[::step].dropna().reset_index(drop=True)
+                new_df['median_' + column] = orig_df.rolling(window).median()[::step].dropna().reset_index(drop=True)
         else:
-            new_df['label'] = orig_df.rolling(window).agg(getMostRecentFault)[::step]
+            new_df['label'] = orig_df.rolling(window).agg(getMostRecentFault)[::step].dropna().reset_index(drop=True)
 
     return new_df
 
@@ -88,7 +96,7 @@ if __name__ == '__main__':
             print("Processing file " + file_entry.name)
             orig_df = pd.read_csv(filepath, header=0, index_col=0, parse_dates=True)
             #remove columns with name "cpuXX/<metricname>"
-            orig_df = orig_df.loc[:, ~orig_df.columns.str.contains('cpu[0-9]')]
+            #orig_df = orig_df.loc[:, ~orig_df.columns.str.contains('cpu[0-9]')]
             #drop applicationLabel and faultPred
             orig_df.drop(['experiment/applicationLabel', 'faultPred'], axis=1, inplace=True)
             #rename faultLabel in label
@@ -98,7 +106,7 @@ if __name__ == '__main__':
             new_df = pd.DataFrame(index=orig_df.index)
             new_df['placeholder'] = 1
             #group by with a window of 60s, the column placeholder is just a trick to make groupby work, we can remove it afterwards
-            new_df = new_df.rolling(num_timewindow).mean()[::args.stepsize]
+            new_df = new_df.rolling(num_timewindow).mean()[::args.stepsize].dropna().reset_index(drop=True)
             new_df.drop('placeholder', axis=1, inplace=True)
 
             #For each column, calculate the indicators defined in the LRZ report of March 2020.
@@ -114,7 +122,7 @@ if __name__ == '__main__':
                     results = pool.starmap(calculateIndicators, arg_list)
                 for dataframe in results:
                     if dataframe.empty == False:
-                        new_df = pd.concat((new_df, dataframe), axis=1)
+                        new_df = pd.concat([new_df, dataframe], axis=1)
                 
             #reorder columns lexycographically
             #new_df = new_df.reindex(sorted(new_df.columns), axis=1)
@@ -122,7 +130,7 @@ if __name__ == '__main__':
             #put label as last column
             label_col = new_df.pop('label')
             new_df['label'] = label_col
-            new_df.dropna(inplace=True)
+            #new_df.dropna(inplace=True)
 
             print("Saving feature vectors for node " + file_entry.stem)
             new_df.to_csv(here.joinpath(file_entry.stem + f"_{args.features}f_{num_timewindow}s_{args.stepsize}step.csv"), index=False)
