@@ -40,18 +40,22 @@ def getSumChanges(arr):
 #orig_df = df[column]
 #for each column, calculate the indicators defined in the LRZ report of March 2020
 def calculateIndicators(column, orig_df, window, step, numfeatures):
+    cpulist = ["col_system", "branch-misses", "branch-instructions"]
     new_df = pd.DataFrame(index=orig_df.index)
     new_df['placeholder'] = 1
     new_df = new_df.rolling(window).mean()[::step].dropna().reset_index(drop=True)
     new_df.drop('placeholder', axis=1, inplace=True)
     if column != None:
-        if search("cpu[0-9]", column):
-            if(numfeatures == 11):
-                new_df['perc5_' + column] = orig_df.rolling(window).quantile(0.05)[::step].dropna().reset_index(drop=True)
+        #if it is a cpu core metric (cpuXX/<metricname>) with <metricname> being one of the elements in cpulist
+        if search("cpu[0-9]", column) and [x for x in cpulist if x in column]:
+            #if(numfeatures == 11):
+            #    new_df['perc5_' + column] = orig_df.rolling(window).quantile(0.05)[::step].dropna().reset_index(drop=True)
             new_df['perc25_' + column] = orig_df.rolling(window).quantile(0.25)[::step].dropna().reset_index(drop=True)
             new_df['perc75_' + column] = orig_df.rolling(window).quantile(0.75)[::step].dropna().reset_index(drop=True)
-            if(numfeatures == 11):
-                new_df['perc95_' + column] = orig_df.rolling(window).quantile(0.95)[::step].dropna().reset_index(drop=True)
+            new_df['sumdiff_' +  column] = orig_df.rolling(window).agg(getSumChanges)[::step].dropna().reset_index(drop=True)
+            new_df['std_' +  column] = orig_df.rolling(window).std()[::step].dropna().reset_index(drop=True)
+            #if(numfeatures == 11):
+            #    new_df['perc95_' + column] = orig_df.rolling(window).quantile(0.95)[::step].dropna().reset_index(drop=True)
         elif column != 'label':
             new_df['mean_' + column] = orig_df.rolling(window).mean()[::step].dropna().reset_index(drop=True)
             new_df['std_' +  column] = orig_df.rolling(window).std()[::step].dropna().reset_index(drop=True)
@@ -97,6 +101,7 @@ if __name__ == '__main__':
             orig_df = pd.read_csv(filepath, header=0, index_col=0, parse_dates=True)
             #remove columns with name "cpuXX/<metricname>"
             #orig_df = orig_df.loc[:, ~orig_df.columns.str.contains('cpu[0-9]')]
+            orig_df = orig_df.loc[:, ~orig_df.columns.str.contains('cpu[0-9]+\/col_iowait|cpu[0-9]+\/cache-references|cpu[0-9]+\/instructions|cpu[0-9]+\/cache-misses|cpu[0-9]+\/col_user|cpu[0-9]+\/ref-cycles|cpu[0-9]+\/cpu-cycles|cpu[0-9]+\/col_idle|cpu[0-9]+\/col_nice')]
             #drop applicationLabel and faultPred
             orig_df.drop(['experiment/applicationLabel', 'faultPred'], axis=1, inplace=True)
             #rename faultLabel in label
