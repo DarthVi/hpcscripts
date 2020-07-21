@@ -40,7 +40,7 @@ def getSumChanges(arr):
 #orig_df = df[column]
 #for each column, calculate the indicators defined in the LRZ report of March 2020
 def calculateIndicators(column, orig_df, window, step, numfeatures):
-    cpulist = ["col_system", "branch-misses", "branch-instructions"]
+    cpulist = ["cpu-cycles", "ref-cycles", "col_system", "branch-misses", "branch-instructions"]
     new_df = pd.DataFrame(index=orig_df.index)
     new_df['placeholder'] = 1
     new_df = new_df.rolling(window).mean()[::step].dropna().reset_index(drop=True)
@@ -54,6 +54,7 @@ def calculateIndicators(column, orig_df, window, step, numfeatures):
             new_df['perc75_' + column] = orig_df.rolling(window).quantile(0.75)[::step].dropna().reset_index(drop=True)
             new_df['sumdiff_' +  column] = orig_df.rolling(window).agg(getSumChanges)[::step].dropna().reset_index(drop=True)
             new_df['std_' +  column] = orig_df.rolling(window).std()[::step].dropna().reset_index(drop=True)
+            new_df['mean_' + column] = orig_df.rolling(window).mean()[::step].dropna().reset_index(drop=True)
             #if(numfeatures == 11):
             #    new_df['perc95_' + column] = orig_df.rolling(window).quantile(0.95)[::step].dropna().reset_index(drop=True)
         elif column != 'label':
@@ -101,7 +102,7 @@ if __name__ == '__main__':
             orig_df = pd.read_csv(filepath, header=0, index_col=0, parse_dates=True)
             #remove columns with name "cpuXX/<metricname>"
             #orig_df = orig_df.loc[:, ~orig_df.columns.str.contains('cpu[0-9]')]
-            orig_df = orig_df.loc[:, ~orig_df.columns.str.contains('cpu[0-9]+\/col_iowait|cpu[0-9]+\/cache-references|cpu[0-9]+\/instructions|cpu[0-9]+\/cache-misses|cpu[0-9]+\/col_user|cpu[0-9]+\/ref-cycles|cpu[0-9]+\/cpu-cycles|cpu[0-9]+\/col_idle|cpu[0-9]+\/col_nice')]
+            orig_df = orig_df.loc[:, ~orig_df.columns.str.contains('cpu[0-9]+\/col_iowait|cpu[0-9]+\/cache-references|cpu[0-9]+\/instructions|cpu[0-9]+\/cache-misses|cpu[0-9]+\/col_user|cpu[0-9]+\/col_idle|cpu[0-9]+\/col_nice')]
             #drop applicationLabel and faultPred
             orig_df.drop(['experiment/applicationLabel', 'faultPred'], axis=1, inplace=True)
             #rename faultLabel in label
@@ -125,9 +126,12 @@ if __name__ == '__main__':
                         arg_list.append((elem, orig_df[elem], num_timewindow, args.stepsize, args.features))
                 with multiprocessing.Pool(processes=args.processes) as pool:
                     results = pool.starmap(calculateIndicators, arg_list)
-                for dataframe in results:
-                    if dataframe.empty == False:
-                        new_df = pd.concat([new_df, dataframe], axis=1)
+                results.insert(0, new_df)
+                new_df = pd.concat(results, axis=1)
+                results = []
+                #for dataframe in results:
+                #    if dataframe.empty == False:
+                #        new_df = pd.concat([new_df, dataframe], axis=1)
                 
             #reorder columns lexycographically
             #new_df = new_df.reindex(sorted(new_df.columns), axis=1)
