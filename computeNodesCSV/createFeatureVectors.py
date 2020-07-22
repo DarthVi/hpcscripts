@@ -13,6 +13,8 @@ import argparse
 import multiprocessing
 import itertools
 from re import search
+from sklearn.linear_model import LassoCV
+import time
 
 """grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"""
 def grouper(n, iterable, fillvalue=None):
@@ -105,6 +107,34 @@ if __name__ == '__main__':
             orig_df = orig_df.loc[:, ~orig_df.columns.str.contains('cpu[0-9]+\/col_iowait|cpu[0-9]+\/cache-references|cpu[0-9]+\/instructions|cpu[0-9]+\/cache-misses|cpu[0-9]+\/col_user|cpu[0-9]+\/col_idle|cpu[0-9]+\/col_nice')]
             #drop applicationLabel and faultPred
             orig_df.drop(['experiment/applicationLabel', 'faultPred'], axis=1, inplace=True)
+
+            ##############FEATURE SELECTION###################################
+            start_time = time.time()
+            print("selecting metrics using LassoCV")
+            #use LassoCV to select most important columns
+            X = orig_df.drop('faultLabel', axis=1)
+            y = orig_df['faultLabel']
+            reg = LassoCV()
+            reg.fit(X, y)
+            coef = pd.Series(reg.coef_, index = X.columns)
+            #select only metrics for which the coefficient is different from 0
+            selected_columns = [x for x in coef.index if coef[x] != 0]
+            selected_columns.append('faultLabel')
+
+            orig_df = orig_df[selected_columns]
+            end_time = time.time()
+            print("Execution time in seconds: ", end_time-start_time)
+            ##############END OF FEATURE SELECTION###############################
+
+            #############SAVING TXT INFO ABOUT SELECTED COLUMNS##################
+            selected_columns = selected_columns[:-1] #remove faultLabel
+            filename = file_entry.name + "_selectedColumns.txt"
+            with open(filename, "w") as out:
+                out.write("----Selected columns:\n")
+                for i in range(len(selected_columns)):
+                    out.write(selected_columns[i] + "\n")
+            #############END OF SAVING TXT INFO##################################
+
             #rename faultLabel in label
             orig_df.rename(columns={'faultLabel' : 'label'}, inplace=True)
             orig_df.reset_index(drop=True, inplace=True)
