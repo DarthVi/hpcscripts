@@ -12,6 +12,9 @@ from tqdm import tqdm
 import argparse
 import multiprocessing
 import itertools
+import re
+import itertools
+import time
 
 #######functions to count lines of a file, from https://stackoverflow.com/a/27518377/1262118
 def _make_gen(reader):
@@ -116,14 +119,42 @@ Set the list of correlation columns names, leaving label out of it
 """
 def setNamesOfCorrelationColumns(lst, columns):
     if not lst:
-        for col1 in columns:
-            for col2 in columns:
-                #check that correlations with the label are not in the list, we are not supposed to have label data in the test set;
-                #moreover only one direction is allowed (if there's corr_col1_col2, there's no need to add corr_col2_col1)
-                if col1 != col2 and col1 != 'label' and col2 != 'label' and ('corr_' + col2 + '_' + col1) not in lst:
-                    lst.append('corr_' + col1 + '_' + col2)
+        columns.remove('label')
+        couples = list(itertools.product(columns, columns))
+        for coup in couples:
+            #get only corr(A,B), not corr(B,A); moreover do not take corr(A,A)
+            if coup[0] != coup[1] and ("corr_" + coup[1] + "_" + coup[0]) not in lst:
+                lst.append("corr_" + coup[0] + "_" + coup[1])
 
 
+def setCpuMetricsAttribute(lst, columns):
+    if not lst:
+        regex = re.compile('cpu[0-9]+\/')
+        #get columns in the form "cpuXX/<metricname>"
+        cpucols = [col for col in columns if regex.match(col)]
+        #get only the <metricname> in "cpuXX/<metricname>", there will be duplicates
+        dupcpuatt = [re.sub(r"cpu[0-9]+\/", "", col) for col in cpucols]
+        #remove duplicates by using a set
+        cpuatt_set = set(dupcpuatt)
+        #convert again to list and assign to lst
+        lst.extend(list(cpuatt_set))
+
+"""
+Horizontally compute min, max, 25th percentile, 75th percentile and mean for cpu specific metrics
+
+@input df: dataframe
+@input m: metric
+"""
+def computeCpuSpecificMetrics(df, m):
+    ndf = pd.DataFrame()
+    regex = re.compile("cpu[0-9]+\/" + m)
+    selected_columns = [col for col in df.columns if regex.match(col)]
+    ndf["min_cpus/" + m] = df[selected_columns].min(axis=1)
+    ndf["max_cpus/" + m] = df[selected_columns].max(axis=1)
+    ndf["perc25_cpus/" + m] = df[selected_columns].quantile(q=0.25, axis=1)
+    ndf["perc75_cpus/" + m] = df[selected_columns].quantile(q=0.75, axis=1)
+    ndf["mean_cpus/" + m] = df[selected_columns].mean(axis=1)
+    return ndf
 
 if __name__ == '__main__':
 
@@ -162,8 +193,31 @@ if __name__ == '__main__':
             pbar = tqdm(total=orig_numlines - num_timewindow + 1)
             currindex = 1
             corrcols = []
+            cpu_metrics_att = []
             while(currindex < orig_numlines):
                 orig_df = pd.read_csv(filepath, header=0, index_col=0, parse_dates=True, skiprows=range(1,currindex), nrows=args.chunk)
+                #get attributes <metricname> contained in columns of the form "cpuXX/<metricname>"
+                print("setCpuMetricsAttribute called")
+                setCpuMetricsAttribute(cpu_metrics_att, orig_df.columns)
+                print("setCpuMetricsAttribute finished")
+
+                starting_time = time.time()
+                print("Horizontally computing cpu specific metrics")
+                #orig_df = computeCpuSpecificMetrics(orig_df, cpu_metrics_att)
+                for groupm in list(grouper(args.processes, cpu_metrics_att)):
+                    arg_list = []
+                    for m in groupm:
+                        if m != None:
+                            arg_list.append((orig_df, m))
+                    with multiprocessing.Pool(processes=args.processes) as pool:
+                        results = pool.starmap(computeCpuSpecificMetrics, arg_list)
+                    results.insert(0, orig_df)
+                    orig_df = pd.concat(results, axis=1)
+                    results = []
+                ending_time = time.time()
+                print("Execution time in seconds: ", ending_time - starting_time)
+
+
                 #remove columns with name "cpuXX/<metricname>"
                 orig_df = orig_df.loc[:, ~orig_df.columns.str.contains('cpu[0-9]')]
                 #drop applicationLabel and faultPred
@@ -172,8 +226,11 @@ if __name__ == '__main__':
                 orig_df.rename(columns={'faultLabel' : 'label'}, inplace=True)
                 orig_df.reset_index(drop=True, inplace=True)
 
-                #set corrcols list only once, when the list is empty
-                setNamesOfCorrelationColumns(corrcols, orig_df.columns)
+                if args.corr == True:
+                    print("setNamesOfCorrelationColumns called")
+                    #set corrcols list only once, when the list is empty
+                    setNamesOfCorrelationColumns(corrcols, list(orig_df.columns))
+                    print("setNamesOfCorrelationColumns finished")
 
                 #initialize new dataframe to empty timeseries
                 new_df = pd.DataFrame(index=orig_df.index)
