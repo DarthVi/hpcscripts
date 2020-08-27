@@ -165,6 +165,7 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--processes", type=int, default=4)
     parser.add_argument("-c", "--chunk", type=int, default=10000)
     parser.add_argument("-r", "--corr", type=str2bool, nargs='?', const=True, default=False)
+    parser.add_argument("-l", "--horiz", type=str2bool, nargs='?', const=True, default=False)
     args = parser.parse_args()
 
     if args.features != 6 and args.features != 11:
@@ -197,25 +198,27 @@ if __name__ == '__main__':
             while(currindex < orig_numlines):
                 orig_df = pd.read_csv(filepath, header=0, index_col=0, parse_dates=True, skiprows=range(1,currindex), nrows=args.chunk)
                 #get attributes <metricname> contained in columns of the form "cpuXX/<metricname>"
-                print("setCpuMetricsAttribute called")
-                setCpuMetricsAttribute(cpu_metrics_att, orig_df.columns)
-                print("setCpuMetricsAttribute finished")
+                #print("setCpuMetricsAttribute called")
+                if(args.horiz==True):
+                    setCpuMetricsAttribute(cpu_metrics_att, orig_df.columns)
+                #print("setCpuMetricsAttribute finished")
 
-                starting_time = time.time()
-                print("Horizontally computing cpu specific metrics")
+                #starting_time = time.time()
+                #print("Horizontally computing cpu specific metrics")
                 #orig_df = computeCpuSpecificMetrics(orig_df, cpu_metrics_att)
-                for groupm in list(grouper(args.processes, cpu_metrics_att)):
-                    arg_list = []
-                    for m in groupm:
-                        if m != None:
-                            arg_list.append((orig_df, m))
-                    with multiprocessing.Pool(processes=args.processes) as pool:
-                        results = pool.starmap(computeCpuSpecificMetrics, arg_list)
-                    results.insert(0, orig_df)
-                    orig_df = pd.concat(results, axis=1)
-                    results = []
-                ending_time = time.time()
-                print("Execution time in seconds: ", ending_time - starting_time)
+                if(args.horiz==True):
+                    for groupm in list(grouper(args.processes, cpu_metrics_att)):
+                        arg_list = []
+                        for m in groupm:
+                            if m != None:
+                                arg_list.append((orig_df, m))
+                        with multiprocessing.Pool(processes=args.processes) as pool:
+                            results = pool.starmap(computeCpuSpecificMetrics, arg_list)
+                        results.insert(0, orig_df)
+                        orig_df = pd.concat(results, axis=1)
+                        results = []
+                #ending_time = time.time()
+                #print("Execution time in seconds: ", ending_time - starting_time)
 
 
                 #remove columns with name "cpuXX/<metricname>"
@@ -227,10 +230,10 @@ if __name__ == '__main__':
                 orig_df.reset_index(drop=True, inplace=True)
 
                 if args.corr == True:
-                    print("setNamesOfCorrelationColumns called")
+                    #print("setNamesOfCorrelationColumns called")
                     #set corrcols list only once, when the list is empty
                     setNamesOfCorrelationColumns(corrcols, list(orig_df.columns))
-                    print("setNamesOfCorrelationColumns finished")
+                    #print("setNamesOfCorrelationColumns finished")
 
                 #initialize new dataframe to empty timeseries
                 new_df = pd.DataFrame(index=orig_df.index)
