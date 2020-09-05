@@ -1,5 +1,5 @@
 """
-2020-07-06 10:43
+2020-09-03 10:31
 
 @author: Vito Vincenzo Covella
 """
@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from numpy import random
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.feature_selection import RFE
+from sklearn.feature_selection import RFE, RFECV
 from sklearn.metrics import f1_score
 import sys
 import matplotlib.pyplot as plt
@@ -49,17 +49,14 @@ def plot_bar_x(measureType, key, value):
 if __name__ == '__main__':
     random.seed(42)
 
-    if len(sys.argv) != 3:
-        print("Please insert a file path to analyze as argument and the number of important features to select")
+    if len(sys.argv) != 2:
+        print("Please insert a file path to analyze as argument")
         exit(1)
-
-    numImportantFeatures = int(str(sys.argv[2]))
 
     input_file = str(sys.argv[1])
     input_name = input_file.split('.')[0]
     nodename = input_file.split('_')[0].split('/')[-1]
-    fileN_mostImportant = input_name + "_result_RFE_" + str(numImportantFeatures) + "mostImportant.txt"
-    featureFile = input_name + "_RFE_" + str(numImportantFeatures) "mostImportantFeatures.txt"
+    graph_file = input_name + "_RFECV_numfeatures_graph"
 
     data = pd.read_csv(input_file)
     #all the columns except the label one
@@ -80,16 +77,29 @@ if __name__ == '__main__':
 
     clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=-1, random_state=42)
 
-    #initialize RFE with RF classifier and numImportantFeatures to select
-    rfe = RFE(clf, n_features_to_select=numImportantFeatures)
+    #cv = None -> defaults to 5-fold cross validation
+    rfecv = RFECV(estimator=clf, step=1, cv=None, scoring='f1_weighted')
 
-    X_rfe = rfe.fit_transform(trainData, trainLbl)
+    #5-fold on the whole dataset
+    rfecv.fit(features, labels)
 
-    #Fitting the data to model
-    clf.fit(X_rfe, trainLbl)
-    temp = pd.Series(rfe.support_,index = metricKeys)
+    plt.figure()
+    plt.xlabel("Number of features selected")
+    plt.ylabel("Cross validation score (F-score)")
+    fig_feat = plt.gcf()
+    plt.plot(range(1, len(rfecv.grid_scores_) + 1), rfecv.grid_scores_)
+    plt.show()
+    plt.draw()
+    fig_feat.savefig('%s.png'%(graph_file), bbox_inches='tight')
+
+    numImportantFeatures = rfecv.n_features_
+    print("Optimal number of features : %d" % numImportantFeatures)
+    fileN_mostImportant = input_name + "_result_RFE_optimal" + str(numImportantFeatures) + "mostImportant.txt"
+    featureFile = input_name + "_RFE_optimal" + str(numImportantFeatures) + "mostImportantFeatures.txt"
+
+    temp = pd.Series(rfecv.support_,index = metricKeys)
     selected_features_rfe = temp[temp==True].index
-    print("Selected features with RFE:")
+    print("Selected features with RFECV:")
     print(selected_features_rfe)
 
     with open(featureFile, 'w') as out:
@@ -114,6 +124,7 @@ if __name__ == '__main__':
     with open(fileN_mostImportant, 'w') as out:
         out.write('- Classifier: %s\n' % clf.__class__.__name__)
 
+    #this time we perform training on 60% of the dataset, and classification on 40%
     clf.fit(trainData, trainLbl)
     pred = clf.predict(testData)
     print('- Classifier: %s' % clf.__class__.__name__)
@@ -132,5 +143,5 @@ if __name__ == '__main__':
             out.write('Fault: %d,  F1: %f.\n'%(l,f1))
 
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
-    measureType = input_name + "_result_RFE" + str(numImportantFeatures) + "mostImportant"
+    measureType = input_name + "_result_RFE_optimal" + str(numImportantFeatures) + "mostImportant"
     plot_bar_x(measureType, keys, F)

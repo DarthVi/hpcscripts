@@ -1,0 +1,11 @@
+- Most important features:
+---- median_Active-anon
+---- max_Active
+---- perc75_ctxt
+---- perc95_ctxt
+---- perc25_numa_hit
+---- mean_numa_interleave
+---- std_opaif0/portXmitPackets
+---- perc5_max_cpus/branch-instructions
+---- perc95_max_cpus/instructions
+---- perc5_max_cpus/cache-references

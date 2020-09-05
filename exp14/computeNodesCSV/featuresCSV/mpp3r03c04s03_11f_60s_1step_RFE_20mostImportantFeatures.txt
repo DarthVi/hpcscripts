@@ -1,0 +1,21 @@
+- Most important features:
+---- std_Active-anon
+---- median_Active-anon
+---- max_Active
+---- perc75_ctxt
+---- perc95_ctxt
+---- perc25_numa_hit
+---- mean_numa_interleave
+---- perc95_numa_interleave
+---- max_numa_interleave
+---- std_opaif0/portXmitPackets
+---- perc5_pgfault
+---- perc25_thp_fault_alloc
+---- perc25_perc25_cpus/ref-cycles
+---- perc5_max_cpus/branch-instructions
+---- perc25_max_cpus/branch-instructions
+---- min_max_cpus/branch-instructions
+---- perc95_max_cpus/instructions
+---- mean_max_cpus/cache-references
+---- perc5_max_cpus/cache-references
+---- min_max_cpus/cache-references
