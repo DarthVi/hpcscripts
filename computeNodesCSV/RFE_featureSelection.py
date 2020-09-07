@@ -59,7 +59,7 @@ if __name__ == '__main__':
     input_name = input_file.split('.')[0]
     nodename = input_file.split('_')[0].split('/')[-1]
     fileN_mostImportant = input_name + "_result_RFE_" + str(numImportantFeatures) + "mostImportant.txt"
-    featureFile = input_name + "_RFE_" + str(numImportantFeatures) "mostImportantFeatures.txt"
+    featureFile = input_name + "_RFE_" + str(numImportantFeatures) + "mostImportantFeatures.txt"
 
     data = pd.read_csv(input_file)
     #all the columns except the label one

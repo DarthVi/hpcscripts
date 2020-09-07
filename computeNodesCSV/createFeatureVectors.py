@@ -15,6 +15,7 @@ import itertools
 import re
 import itertools
 import time
+from scipy import stats
 
 #######functions to count lines of a file, from https://stackoverflow.com/a/27518377/1262118
 def _make_gen(reader):
@@ -64,9 +65,16 @@ the sum of the changes within the aggregation window during rolling window opera
 def getSumChanges(arr):
     return np.sum(np.diff(arr))
 
+"""
+Get the mode (most frequent value) among the labels
+"""
+def getModeLabel(arr):
+    m = stats.mode(arr)
+    return m[0][0]
+
 #orig_df = df[column]
 #for each column, calculate the indicators defined in the LRZ report of March 2020 and the correlations between the columns
-def calculateIndicators(column, orig_df, corrcolumns, window, step, numfeatures, compute_correlations):
+def calculateIndicators(column, orig_df, corrcolumns, window, step, numfeatures, compute_correlations, labelMode):
     new_df = pd.DataFrame(index=orig_df.index)
     new_df['placeholder'] = 1
     new_df = new_df.rolling(window).mean().dropna()[::step].reset_index(drop=True)
@@ -88,7 +96,10 @@ def calculateIndicators(column, orig_df, corrcolumns, window, step, numfeatures,
                 new_df['max_' + column] = orig_df[column].rolling(window).max().dropna()[::step].reset_index(drop=True)
                 new_df['median_' + column] = orig_df[column].rolling(window).median().dropna()[::step].reset_index(drop=True)
         else:
-            new_df['label'] = orig_df[column].rolling(window).agg(getMostRecentFault).dropna()[::step].reset_index(drop=True)
+            if(labelMode == "mode"):
+                new_df['label'] = orig_df[column].rolling(window).agg(getModeLabel).dropna()[::step].reset_index(drop=True)
+            else:    
+                new_df['label'] = orig_df[column].rolling(window).agg(getMostRecentFault).dropna()[::step].reset_index(drop=True)
 
         if compute_correlations == True:
             for othercol in orig_df.columns:
@@ -166,10 +177,15 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--chunk", type=int, default=10000)
     parser.add_argument("-r", "--corr", type=str2bool, nargs='?', const=True, default=False)
     parser.add_argument("-l", "--horiz", type=str2bool, nargs='?', const=True, default=False)
+    parser.add_argument("-t", "--label", type=str, default="last")
     args = parser.parse_args()
 
     if args.features != 6 and args.features != 11:
         print("Wrong arguments for features")
+        exit(1)
+
+    if args.label != "mode" and args.label != "last":
+        print("Wrong argument for label")
         exit(1)
 
     num_timewindow = args.timewindow
@@ -188,8 +204,13 @@ if __name__ == '__main__':
 
             isFirst = True
 
-            if os.path.exists(here.joinpath(file_entry.stem + f"_{args.features}f_{num_timewindow}s_{args.stepsize}step.csv")):
-                os.remove(here.joinpath(file_entry.stem + f"_{args.features}f_{num_timewindow}s_{args.stepsize}step.csv"))
+            if(args.label == "mode"):
+                csvpath = here.joinpath(file_entry.stem + f"_{args.features}f_{num_timewindow}s_{args.stepsize}step_mode.csv")
+            else:
+                csvpath = here.joinpath(file_entry.stem + f"_{args.features}f_{num_timewindow}s_{args.stepsize}step.csv")
+
+            if os.path.exists(csvpath):
+                os.remove(csvpath)
 
             pbar = tqdm(total=orig_numlines - num_timewindow + 1)
             currindex = 1
@@ -250,7 +271,7 @@ if __name__ == '__main__':
                     arg_list = []
                     for elem in groupcol:
                         if elem != None:
-                            arg_list.append((elem, orig_df, corrcols, num_timewindow, args.stepsize, args.features, args.corr))
+                            arg_list.append((elem, orig_df, corrcols, num_timewindow, args.stepsize, args.features, args.corr, args.label))
                     with multiprocessing.Pool(processes=args.processes) as pool:
                         results = pool.starmap(calculateIndicators, arg_list)
                     results.insert(0, new_df)
@@ -265,7 +286,7 @@ if __name__ == '__main__':
                 label_col = new_df.pop('label')
                 new_df['label'] = label_col
 
-                new_df.to_csv(here.joinpath(file_entry.stem + f"_{args.features}f_{num_timewindow}s_{args.stepsize}step.csv"), mode='a', index=False, header=isFirst)
+                new_df.to_csv(csvpath, mode='a', index=False, header=isFirst)
                 isFirst = False
 
                 currindex, counter = calculateNextIndex(currindex, args.chunk, num_timewindow, args.stepsize)
