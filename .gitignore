@@ -5,3 +5,4 @@ data1/computeNodesCSV/*.csv
 .ipynb_checkpoints/*
 *.fuse_hidden.*
 *.BK
+.*
