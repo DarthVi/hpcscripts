@@ -1,6 +1,6 @@
 import unittest
-from featurereaders import RFEFeatureReader, DTFeatureReader
-from featurereader import FeatureReader
+from FileFeatureReader.featurereaders import RFEFeatureReader, DTFeatureReader
+from FileFeatureReader.featurereader import FeatureReader
 from unittest import mock
 from unittest.mock import patch
 import builtins
