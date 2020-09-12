@@ -1,0 +1,7 @@
+median_col_user
+perc5_power
+min_power
+perc25_max_cpus/cache-misses
+median_max_cpus/cache-misses
+perc5_max_cpus/cache-references
+perc25_max_cpus/cache-references
