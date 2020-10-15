@@ -1,0 +1,10 @@
+- Classifier: RandomForestClassifier
+Overall weighted score: 0.815876
+Fault: 0,  F1: 0.117045.
+Fault: 1,  F1: 0.526870.
+Fault: 2,  F1: 0.992965.
+Fault: 3,  F1: 0.839567.
+Fault: 4,  F1: 0.988224.
+Fault: 5,  F1: 0.949746.
+Fault: 6,  F1: 0.996107.
+Fault: 7,  F1: 0.995787.

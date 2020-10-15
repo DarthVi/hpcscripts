@@ -14,6 +14,7 @@ import sys
 import matplotlib.pyplot as plt
 import os
 import argparse
+from tqdm import tqdm
 from imblearn.under_sampling import RandomUnderSampler
 from FileFeatureReader.featurereaders import RFEFeatureReader
 from FileFeatureReader.featurereader import FeatureReader
@@ -71,7 +72,7 @@ if __name__ == '__main__':
 
     experiments_scores = {}
 
-    for file_entry in csvdir.iterdir():
+    for file_entry in tqdm(list(csvdir.iterdir())):
         if file_entry.is_file() and file_entry.suffix == '.csv':
             filepath = csvdir.joinpath(file_entry.name)
             print("Processing file " + file_entry.name)
@@ -84,7 +85,7 @@ if __name__ == '__main__':
             data = pd.read_csv(file_entry, usecols=selectionlist)
             X = data[featurelist].to_numpy()
             y = data['label'].to_numpy()
-            labels = np.unique(y)
+            #labels = np.unique(y)
             #random undersampler resample only the majority class
             rus = RandomUnderSampler(sampling_strategy='majority', random_state=42)
 
