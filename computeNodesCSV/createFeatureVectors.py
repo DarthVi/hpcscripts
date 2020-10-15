@@ -16,6 +16,7 @@ import re
 import itertools
 import time
 from scipy import stats
+from sklearn.preprocessing import MinMaxScaler
 
 #######functions to count lines of a file, from https://stackoverflow.com/a/27518377/1262118
 def _make_gen(reader):
@@ -30,8 +31,8 @@ def rawgencount(filename):
     return sum( buf.count(b'\n') for buf in f_gen )
 ########
 
-"""grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"""
 def grouper(n, iterable, fillvalue=None):
+    """grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"""
     args = [iter(iterable)] * n
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
@@ -58,17 +59,18 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
-"""
-Get the sum of the changes within the array-like object; used to get
-the sum of the changes within the aggregation window during rolling window operations.
-"""
 def getSumChanges(arr):
+    """
+    Get the sum of the changes within the array-like object; used to get
+    the sum of the changes within the aggregation window during rolling window operations.
+    """
     return np.sum(np.diff(arr))
 
-"""
-Get the mode (most frequent value) among the labels
-"""
+
 def getModeLabel(arr):
+    """
+    Get the mode (most frequent value) among the labels
+    """
     m = stats.mode(arr)
     return m[0][0]
 
@@ -112,10 +114,9 @@ def calculateIndicators(column, orig_df, corrcolumns, window, step, numfeatures,
 
     return new_df
 
-"""
-Calculate the next index from which to start in the next iteration of the algorithm
-"""
+
 def calculateNextIndex(current_index, numchunk, numwindow, stepsize):
+    '''Calculate the next index from which to start in the next iteration of the algorithm'''
     tmp_line =  numchunk
 
     count = 0
@@ -125,10 +126,9 @@ def calculateNextIndex(current_index, numchunk, numwindow, stepsize):
 
     return (current_index + count*stepsize, count*stepsize)
 
-"""
-Set the list of correlation columns names, leaving label out of it
-"""
+
 def setNamesOfCorrelationColumns(lst, columns):
+    '''Set the list of correlation columns names, leaving label out of it'''
     if not lst:
         columns.remove('label')
         couples = list(itertools.product(columns, columns))
@@ -150,13 +150,14 @@ def setCpuMetricsAttribute(lst, columns):
         #convert again to list and assign to lst
         lst.extend(list(cpuatt_set))
 
-"""
-Horizontally compute min, max, 25th percentile, 75th percentile and mean for cpu specific metrics
 
-@input df: dataframe
-@input m: metric
-"""
 def computeCpuSpecificMetrics(df, m):
+    """
+    Horizontally compute min, max, 25th percentile, 75th percentile and mean for cpu specific metrics
+
+    @input df: dataframe
+    @input m: metric
+    """
     ndf = pd.DataFrame()
     regex = re.compile("cpu[0-9]+\/" + m)
     selected_columns = [col for col in df.columns if regex.match(col)]
@@ -166,6 +167,40 @@ def computeCpuSpecificMetrics(df, m):
     ndf["perc75_cpus/" + m] = df[selected_columns].quantile(q=0.75, axis=1)
     ndf["mean_cpus/" + m] = df[selected_columns].mean(axis=1)
     return ndf
+
+def minmaxscaling(filepath, rootpath, filename):
+    """
+    Applies scaling to the dataframe
+
+    @input filepath: path of the CSV file to normalize
+    @input rootpath: path of the root folder in which the CSV is stored
+    @input filename: stem name (filename without extension) of the file to normalize
+
+    @return path of the new normalized file
+    """
+    scaler = MinMaxScaler()
+    df = pd.read_csv(filepath, header=0, index_col=0, parse_dates=True)
+    if 'busyLabel' in df.columns:
+        tmpdf = df.drop(['experiment/applicationLabel', 'faultPred', 'faultLabel', 'busyLabel'], axis=1)
+    else:
+        tmpdf = df.drop(['experiment/applicationLabel', 'faultPred', 'faultLabel'], axis=1)
+    tmpdf_scaled = scaler.fit_transform(tmpdf)
+    fdf = pd.DataFrame(tmpdf_scaled, columns=tmpdf.columns, index=tmpdf.index)
+    fdf['experiment/applicationLabel'] = df['experiment/applicationLabel']
+    fdf['faultPred'] = df['faultPred']
+    #the node in Experiment 4 have busyLabel
+    if 'busyLabel' in df.columns:
+        fdf['busyLabel'] = df['busyLabel']
+
+    fdf['faultLabel'] = df['faultLabel']
+
+    #save to CSV and return the new filepath string
+    newfilename = filename + '_normalized.csv'
+    newfilepath = rootpath.joinpath(newfilename)
+    fdf.to_csv(newfilepath, index=True, header=True)
+    #returns the path of the normalized file
+    return newfilepath
+
 
 if __name__ == '__main__':
 
@@ -178,6 +213,7 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--corr", type=str2bool, nargs='?', const=True, default=False)
     parser.add_argument("-l", "--horiz", type=str2bool, nargs='?', const=True, default=False)
     parser.add_argument("-t", "--label", type=str, default="last")
+    parser.add_argument("-n", "--normalize", type=str2bool, nargs='?', const=True, default=False)
     args = parser.parse_args()
 
     if args.features != 6 and args.features != 11:
@@ -196,8 +232,14 @@ if __name__ == '__main__':
         if file_entry.is_file() and file_entry.suffix == '.csv' and '_' not in file_entry.name:
             filepath = here.joinpath(file_entry.name)
             print("Processing file " + file_entry.name)
+
+            if(args.normalize == True):
+                newpath = minmaxscaling(filepath, here, file_entry.stem)
+            else:
+                newpath = filepath
+
             #get line count by counting how many newlines there are
-            orig_numlines = rawgencount(filepath)
+            orig_numlines = rawgencount(newpath)
             #get row count, excluding the header
             orig_numlines = orig_numlines - 1
             print("File lines: ", orig_numlines)
@@ -205,9 +247,9 @@ if __name__ == '__main__':
             isFirst = True
 
             if(args.label == "mode"):
-                csvpath = here.joinpath(file_entry.stem + f"_{args.features}f_{num_timewindow}s_{args.stepsize}step_mode.csv")
+                csvpath = here.joinpath(file_entry.stem + f"_{args.features}f_{num_timewindow}s_{args.stepsize}step_mode{'_normalized' if args.normalize else ''}.csv")
             else:
-                csvpath = here.joinpath(file_entry.stem + f"_{args.features}f_{num_timewindow}s_{args.stepsize}step.csv")
+                csvpath = here.joinpath(file_entry.stem + f"_{args.features}f_{num_timewindow}s_{args.stepsize}step{'_normalized' if args.normalize else ''}.csv")
 
             if os.path.exists(csvpath):
                 os.remove(csvpath)
@@ -217,7 +259,7 @@ if __name__ == '__main__':
             corrcols = []
             cpu_metrics_att = []
             while(currindex < orig_numlines):
-                orig_df = pd.read_csv(filepath, header=0, index_col=0, parse_dates=True, skiprows=range(1,currindex), nrows=args.chunk)
+                orig_df = pd.read_csv(newpath, header=0, index_col=0, parse_dates=True, skiprows=range(1,currindex), nrows=args.chunk)
                 #get attributes <metricname> contained in columns of the form "cpuXX/<metricname>"
                 #print("setCpuMetricsAttribute called")
                 if(args.horiz==True):
