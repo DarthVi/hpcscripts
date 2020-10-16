@@ -22,12 +22,26 @@ from joblib import dump
 from FileFeatureReader.featurereaders import RFEFeatureReader
 from FileFeatureReader.featurereader import FeatureReader
 
-def plot_heatmap(title, vDict, columns, savepath):
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+def plot_heatmap(title, vDict, columns, savepath, annotation=True):
     df = pd.DataFrame(vDict.values(), columns=columns, index=vDict.keys())
+    if len(vDict) <= 6:
+        figsize = (9, 6)
+    else:
+        figsize = (9, len(vDict)//1.5)
     # Draw a heatmap with the numeric values in each cell
-    fig, ax = plt.subplots(figsize=(9, 6))
+    fig, ax = plt.subplots(figsize=figsize)
     ax.set_title(title)
-    sns.heatmap(df, annot=True, fmt=".2g", linewidths=.5, ax=ax)
+    sns.heatmap(df, annot=annotation, fmt=".2g", linewidths=.5, ax=ax)
     plt.yticks(rotation=0)
     fig.savefig(savepath, bbox_inches="tight")
 
@@ -75,6 +89,7 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--savepath", type=str, default="results/", help="Path in which to store the results")
     parser.add_argument("-s", "--sampling", type=str, default="majority", help="Undersampling strategy for the random undersampler (for class balancing)")
     parser.add_argument("-p", "--title", type=str, default="F1-scores", help="Title to give to the heatmap generated")
+    parser.add_argument("-a", "--annotation", type=str2bool, nargs='?', const=True, default=True, help="Wether to annotate or not each cell of the heatmap")
     args = parser.parse_args()
 
     random.seed(42)
@@ -180,4 +195,4 @@ if __name__ == '__main__':
     result_image = resultspath.joinpath(measureType)
 
     saveresults(clsResults, keys, result_path)
-    plot_heatmap(args.title, clsResults, keys, result_image)
+    plot_heatmap(args.title, clsResults, keys, result_image, args.annotation)
