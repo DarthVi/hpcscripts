@@ -12,13 +12,24 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
 import sys
 import matplotlib.pyplot as plt
+import seaborn as sns
 import os
+from collections import OrderedDict
 import argparse
 from imblearn.under_sampling import RandomUnderSampler
 from tqdm import tqdm
 from joblib import dump
 from FileFeatureReader.featurereaders import RFEFeatureReader
 from FileFeatureReader.featurereader import FeatureReader
+
+def plot_heatmap(title, vDict, columns, savepath):
+    df = pd.DataFrame(vDict.values(), columns=columns, index=vDict.keys())
+    # Draw a heatmap with the numeric values in each cell
+    fig, ax = plt.subplots(figsize=(9, 6))
+    ax.set_title(title)
+    sns.heatmap(df, annot=True, fmt=".2g", linewidths=.5, ax=ax)
+    plt.yticks(rotation=0)
+    fig.savefig(savepath, bbox_inches="tight")
 
 def plot_bar_x(measureType, key, value):
     # this is for plotting purpose
@@ -51,6 +62,11 @@ def plot_bar_x(measureType, key, value):
     #plt.show()
     plt.draw()
     fig1.savefig('%s'%(measureType), bbox_inches='tight')
+
+def saveresults(rDict, columns, savepath):
+    '''saves the classification results to CSV'''
+    df = pd.DataFrame(rDict.values(), columns=columns, index=rDict.keys())
+    df.to_csv(savepath, header=True, index=True)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -112,6 +128,7 @@ if __name__ == '__main__':
     dump(clf, model_savepath)
 
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
+    clsResults = OrderedDict()
 
     for file_entry in tqdm(list(testpath.iterdir())):
         if file_entry.is_file() and file_entry.suffix == '.csv':
@@ -132,26 +149,15 @@ if __name__ == '__main__':
 
             pred = clf.predict(X)
 
-            #construct path for storing the result summary in txt
-            resultOut = nodename + "_result.txt"
-            result_path = resultspath.joinpath(resultOut)
-            #construct path for saving png about classification performances
-            measureType = nodename + "_result_image.png"
-            result_image = resultspath.joinpath(measureType)
-
             #list to store f1 values
             F = []
 
-            with open(result_path, 'w') as out:
-               out.write('- Classifier: %s\n' % clf.__class__.__name__)
             print('- Classifier: %s' % clf.__class__.__name__)
 
             #calculate global overall F1-score with weighted average
             f1 = f1_score(y, pred, average = 'weighted')
             F.append(f1)
-
-            with open(result_path, 'a') as out:
-                out.write('Overall weighted score: %f\n'%f1)
+            print('Overall score: %f.'%f1)
 
             #calculate score for each class by micro-averaging
             for l in np.unique(np.asarray(labels)):
@@ -161,8 +167,16 @@ if __name__ == '__main__':
                 pred_tmp = pred[list(np.where(y == l)[0])]
                 f1 = f1_score(lab_tmp, pred_tmp, average = 'micro')
                 F.append(f1)
-                print('Fault: %d,  F1: %f.\n'%(l,f1))
-                with open(result_path, 'a') as out:
-                    out.write('Fault: %d,  F1: %f.\n'%(l,f1))
+                print('Fault: %d,  F1: %f.'%(l,f1))
 
-            plot_bar_x(result_image, keys, F)
+            clsResults[nodename] = F.copy()
+
+    #construct path for storing the result summary in txt
+    resultOut = "classification_results.csv"
+    result_path = resultspath.joinpath(resultOut)
+    #construct path for saving png about classification performances
+    measureType = "classification_results_image.png"
+    result_image = resultspath.joinpath(measureType)
+
+    saveresults(clsResults, keys, result_path)
+    plot_heatmap(clsResults, keys, result_image)
