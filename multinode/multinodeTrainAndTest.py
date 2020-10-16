@@ -74,6 +74,7 @@ if __name__ == '__main__':
     parser.add_argument("-t", "--testpath", type=str, default="test/", help="Path in which there are the test files")
     parser.add_argument("-r", "--savepath", type=str, default="results/", help="Path in which to store the results")
     parser.add_argument("-s", "--sampling", type=str, default="majority", help="Undersampling strategy for the random undersampler (for class balancing)")
+    parser.add_argument("-p", "--title", type=str, default="F1-scores", help="Title to give to the heatmap generated")
     args = parser.parse_args()
 
     random.seed(42)
@@ -179,4 +180,4 @@ if __name__ == '__main__':
     result_image = resultspath.joinpath(measureType)
 
     saveresults(clsResults, keys, result_path)
-    plot_heatmap(clsResults, keys, result_image)
+    plot_heatmap(args.title, clsResults, keys, result_image)
