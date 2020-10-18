@@ -14,13 +14,15 @@ import os
 from joblib import dump
 from FileFeatureReader.featurereaders import RFEFeatureReader, DTFeatureReader
 from FileFeatureReader.featurereader import FeatureReader
+from utils import majority_mean, minority_mean
+from imblearn.under_sampling import RandomUnderSampler
 
 if __name__ == '__main__':
 
     random.seed(42)
 
-    if len(sys.argv) != 3:
-        print("Please insert a file path to analyze as argument and a feature list file")
+    if len(sys.argv) != 4:
+        print("Please insert a file path to analyze as argument, a feature list file and 0 for mean undersampling or 1 for majority undersampling")
         exit(1)
 
     input_file = str(sys.argv[1])
@@ -29,6 +31,16 @@ if __name__ == '__main__':
 
     featurepath = str(sys.argv[2])
     rfe_feature_reader = FeatureReader(RFEFeatureReader(), featurepath)
+
+    sampling_strategy = int(sys.argv[3])
+
+    if sampling_strategy == 0:
+        sampler = RandomUnderSampler(sampling_strategy=majority_mean, random_state=42)
+    elif sampling_strategy == 1:
+        sampler = RandomUnderSampler(sampling_strategy="majority", random_state=42)
+    else:
+        print("Invalid sampling strategy passed as command line argument")
+        exit(1)
 
     #get features used for training
     featurelist = rfe_feature_reader.getFeats()
@@ -41,9 +53,12 @@ if __name__ == '__main__':
     features = data[featurelist]
     labels = data['label']
 
+    #resampling for class balancing
+    X_res, y_res = sampler.fit_resample(features, labels)
+
     clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=-1, random_state=42)
 
-    clf.fit(features, labels)
+    clf.fit(X_res, y_res)
 
     savefile = input_name + "_model.joblib"
 

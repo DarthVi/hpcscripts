@@ -6,3 +6,4 @@ data1/computeNodesCSV/*.csv
 *.fuse_hidden.*
 *.BK
 .*
+multinode/backupWrongExperiments/*

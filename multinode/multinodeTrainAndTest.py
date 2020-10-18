@@ -21,66 +21,7 @@ from tqdm import tqdm
 from joblib import dump
 from FileFeatureReader.featurereaders import RFEFeatureReader
 from FileFeatureReader.featurereader import FeatureReader
-
-def str2bool(v):
-    if isinstance(v, bool):
-       return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
-
-def plot_heatmap(title, vDict, columns, savepath, annotation=True):
-    df = pd.DataFrame(vDict.values(), columns=columns, index=vDict.keys())
-    if len(vDict) <= 6:
-        figsize = (9, 6)
-    else:
-        figsize = (9, len(vDict)//1.5)
-    # Draw a heatmap with the numeric values in each cell
-    fig, ax = plt.subplots(figsize=figsize)
-    ax.set_title(title)
-    sns.heatmap(df, annot=annotation, fmt=".2g", linewidths=.5, ax=ax)
-    plt.yticks(rotation=0)
-    fig.savefig(savepath, bbox_inches="tight")
-
-def plot_bar_x(measureType, key, value):
-    # this is for plotting purpose
-    index = np.arange(len(key))
-    plt.figure()
-    for i, v in enumerate(value):
-        v = np.round(v,2)
-        color = 'red'
-        if v < 0.8:
-            color = 'chocolate'
-        if v >=0.8:
-            color = 'olive'
-        if v >= 0.89:
-            color = 'olivedrab'
-        if v > 0.9:
-            color = 'limegreen'
-        
-        if i == 0:
-            plt.bar(index[i], v, width = 0.9, edgecolor = 'black', ls = '-', lw = 1.5, color = color)
-            plt.text(index[i] - 0.1, 0.3, str('%.2f'%v), fontsize = 12, rotation = 90)
-        else:
-            plt.bar(index[i], v, width = 0.9, edgecolor = 'black', ls = '--', lw = 0.5, color = color)
-            plt.text(index[i] - 0.1, 0.3, str('%.2f'%v), fontsize = 12, rotation = 90)
-#    plt.xlabel('Genre', fontsize=5)
-    plt.ylabel('F-score', fontsize=20)
-    plt.ylim([0.0,1.0])
-    plt.xticks(index, key, fontsize=15, rotation=270)
-    #plt.title('%s'%measureType)
-    fig1 = plt.gcf()
-    #plt.show()
-    plt.draw()
-    fig1.savefig('%s'%(measureType), bbox_inches='tight')
-
-def saveresults(rDict, columns, savepath):
-    '''saves the classification results to CSV'''
-    df = pd.DataFrame(rDict.values(), columns=columns, index=rDict.keys())
-    df.to_csv(savepath, header=True, index=True)
+from utils import str2bool, plot_heatmap, saveresults
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
