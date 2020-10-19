@@ -85,7 +85,7 @@ if __name__ == '__main__':
             data = pd.read_csv(file_entry, usecols=selectionlist)
             X = data[featurelist].to_numpy()
             y = data['label'].to_numpy()
-            #labels = np.unique(y)
+            labels = np.unique(y)
             #random undersampler resample only the majority class
             rus = RandomUnderSampler(sampling_strategy='majority', random_state=42)
 
