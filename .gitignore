@@ -7,3 +7,4 @@ data1/computeNodesCSV/*.csv
 *.BK
 .*
 multinode/backupWrongExperiments/*
+multinode/debugM7M8.zip
