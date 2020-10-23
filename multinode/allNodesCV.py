@@ -28,6 +28,7 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--path", type=str, default="data/", help="Path in which there are the files to analyze")
     parser.add_argument("-r", "--savepath", type=str, default="results/", help="Relative path in which to store the results")
     parser.add_argument("-s", "--sampling", type=str, default="majority", help="Undersampling strategy for the random undersampler (for class balancing)")
+    parser.add_argument("-f", "--shuffle", type=str2bool, nargs='?', const=True, default=False, help="yes to shuffle the data, no otherwise")
     args = parser.parse_args()
 
     random.seed(42)
@@ -39,6 +40,11 @@ if __name__ == '__main__':
     else:
         print("Wrong sampling strategy as argument: must be 'majority' or 'majority_mean'")
         exit(1)
+
+    if args.shuffle == True:
+        kf = KFold(n_splits=5, shuffle=True, random_state=42)
+    else:
+        kf = KFold(n_splits=5)
 
     here = pathlib.Path(__file__).parent #path of this script
     csvdir = here.joinpath(args.path) #get the directory in which there are the files to analyze
@@ -81,7 +87,7 @@ if __name__ == '__main__':
     #classifier model
     clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=-1, random_state=42)
 
-    kf = KFold(n_splits=5)
+
     #array to memorize the scores
     scoreArray = np.zeros(shape=(5,9), dtype=np.float64, order='C')
     for fold, (train_index, test_index) in enumerate(kf.split(X), 0):
