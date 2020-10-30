@@ -3,6 +3,7 @@
 @author: Vito Vincenzo Covella
 """
 
+from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import pathlib
@@ -18,6 +19,8 @@ from tqdm import tqdm
 from imblearn.under_sampling import RandomUnderSampler
 from FileFeatureReader.featurereaders import RFEFeatureReader
 from FileFeatureReader.featurereader import FeatureReader
+
+from utils import plot_heatmap, str2bool, saveresults
 
 def plot_bar_x(measureType, key, value):
     # this is for plotting purpose
@@ -54,13 +57,17 @@ def plot_bar_x(measureType, key, value):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--path", type=str, default="backup_all_CSV/fvectors", help="Path in which there are the files to analyze")
+    parser.add_argument("-s", "--shuffle", type=str2bool, nargs='?', const=True, default=False, help="'yes' to enable shuffling, 'no' otherwise")
+    parser.add_argument("-a", "--annotations", type=str2bool, nargs='?', const=True, default=True, help="'yes' to annotate each cell of the heatmap, 'no' otherwise")
+    parser.add_argument("-t", "--title", type=str, default="", help="Title to give to the heatmap generated")
     args = parser.parse_args()
 
     random.seed(42)
 
     here = pathlib.Path(__file__).parent #path of this script
     csvdir = here.joinpath(args.path) #get the directory in which there are the files to analyze
-    summaryfile = csvdir.joinpath("results/summary.txt")
+    summaryfile = csvdir.joinpath("results/summary.csv")
+    resultsfile = csvdir.joinpath("results/classification_results.csv")
     summarypng = csvdir.joinpath("results/summary.png")
 
     rfe_file = csvdir.joinpath("RFEFeat.txt") #path of the file containing the features to extract
@@ -70,7 +77,8 @@ if __name__ == '__main__':
     #add the label to the previous list
     selectionlist = featurelist + ['label']
 
-    experiments_scores = {}
+    experiments_scores = OrderedDict()
+
 
     for file_entry in tqdm(list(csvdir.iterdir())):
         if file_entry.is_file() and file_entry.suffix == '.csv':
@@ -92,7 +100,11 @@ if __name__ == '__main__':
             #classifier model
             clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=-1, random_state=42)
 
-            kf = KFold(n_splits=5)
+            if(args.shuffle == False):
+                kf = KFold(n_splits=5)
+            else:
+                kf = KFold(n_splits=5, shuffle=True, random_state=42)
+
             #array to memorize the scores
             scoreArray = np.zeros(shape=(5,9), dtype=np.float64, order='C')
             for fold, (train_index, test_index) in enumerate(kf.split(X), 0):
@@ -115,29 +127,22 @@ if __name__ == '__main__':
             key_score = [scoreArray[:,i].mean() for i in range(1, 9)]
             all_scores = [overall_score] + key_score
 
-            with open(five_fold_out, 'w') as out:
-                out.write('- Classifier: %s\n' % clf.__class__.__name__)
-
-            for f, v in enumerate(key_score, 0):
-                print('Fault: %s,  F1: %s' % (f, v))
-                with open(five_fold_out, 'a') as out:
-                    out.write('Fault: %s,  F1: %s\n' % (f, v))
-
-            print("---------------")
-
-            plot_bar_x(str(img_filename), keys, all_scores)
-
             #save overall score in dictionary with nodename as key
-            experiments_scores[nodename] = overall_score
+            experiments_scores[nodename] = all_scores
 
-    sort_expscores = sorted(experiments_scores.items(), key=lambda x: x[1], reverse=True)
+
+    saveresults(experiments_scores, keys, resultsfile)
+    plot_heatmap(args.title, experiments_scores, keys, summarypng, annotation=args.annotations)
+
+    #save as csv a summary of the experiment, sorted from the most performant nodes to the less performant one
+    sort_expscores = sorted(experiments_scores.items(), key=lambda x: x[1][0], reverse=True)
     with open(summaryfile, 'w') as out:
-        out.write("Overall scores for %s\n---------------\n" % clf.__class__.__name__)
+        out.write(",overall\n")
         for i in sort_expscores:
-            out.write("Node: %s,  F1:%s\n" % (i[0], i[1]))
+            out.write("%s,%.16f\n" % (i[0], i[1][0]))
 
     #summary bar plot
-    plt.figure()
-    plt.bar(*zip(*experiments_scores.items()))
-    plt.draw()
-    plt.savefig('%s' % str(summarypng))
+    # plt.figure()
+    # plt.bar(*zip(*experiments_scores.items()))
+    # plt.draw()
+    # plt.savefig('%s' % str(summarypng))
