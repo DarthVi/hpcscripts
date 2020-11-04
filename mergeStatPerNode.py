@@ -19,7 +19,7 @@ missing values
 """
 def monotonicityCheck(df, interp_method, interp_order):
     firstColumn = df.columns[0]
-    if (df[firstColumn].is_monotonic_increasing or df[firstColumn].is_monotonic_decreasing) and ('applicationLabel' not in firstColumn and 'faultLabel' not in firstColumn and 'faultPred' not in firstColumn):
+    if (df[firstColumn].is_monotonic_increasing or df[firstColumn].is_monotonic_decreasing) and ('applicationLabel' not in firstColumn and 'faultLabel' not in firstColumn and 'faultPred' not in firstColumn and 'busyLabel' not in firstColumn):
         df = df.diff()
         df = df.interpolate(method=interp_method, axis=0, limit_direction='backward', order=interp_order)
     return df

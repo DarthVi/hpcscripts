@@ -181,12 +181,15 @@ def minmaxscaling(filepath, rootpath, filename):
     scaler = MinMaxScaler()
     df = pd.read_csv(filepath, header=0, index_col=0, parse_dates=True)
     if 'busyLabel' in df.columns:
-        tmpdf = df.drop(['experiment/applicationLabel', 'faultPred', 'faultLabel', 'busyLabel'], axis=1)
+        tmpdf = df.drop(['experiment/applicationLabel', 'applicationLabel', 'faultPred', 'faultLabel', 'busyLabel'], errors='ignore', axis=1)
     else:
-        tmpdf = df.drop(['experiment/applicationLabel', 'faultPred', 'faultLabel'], axis=1)
+        tmpdf = df.drop(['experiment/applicationLabel', 'applicationLabel', 'faultPred', 'faultLabel'], errors='ignore', axis=1)
     tmpdf_scaled = scaler.fit_transform(tmpdf)
     fdf = pd.DataFrame(tmpdf_scaled, columns=tmpdf.columns, index=tmpdf.index)
-    fdf['experiment/applicationLabel'] = df['experiment/applicationLabel']
+    if 'experiment/applicationLabel' in df.columns:
+        fdf['experiment/applicationLabel'] = df['experiment/applicationLabel']
+    else:
+        fdf['applicationLabel'] = df['applicationLabel']
     fdf['faultPred'] = df['faultPred']
     #the node in Experiment 4 have busyLabel
     if 'busyLabel' in df.columns:
@@ -286,8 +289,8 @@ if __name__ == '__main__':
 
                 #remove columns with name "cpuXX/<metricname>"
                 orig_df = orig_df.loc[:, ~orig_df.columns.str.contains('cpu[0-9]')]
-                #drop applicationLabel and faultPred
-                orig_df.drop(['experiment/applicationLabel', 'faultPred'], axis=1, inplace=True)
+                #drop applicationLabel, faultPred and applicationConfigLabel
+                orig_df.drop(['experiment/applicationLabel', 'applicationLabel', 'faultPred', 'applicationConfigLabel'], axis=1, errors='ignore', inplace=True)
                 #rename faultLabel in label
                 orig_df.rename(columns={'faultLabel' : 'label'}, inplace=True)
                 orig_df.reset_index(drop=True, inplace=True)
