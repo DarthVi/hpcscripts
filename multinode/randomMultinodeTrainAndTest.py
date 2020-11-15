@@ -81,6 +81,7 @@ if __name__ == '__main__':
 
     X = train_df.drop(['label'], axis=1).to_numpy()
     y = train_df['label'].to_numpy()
+    labels = np.unique(y)
 
     del train_df
 
@@ -109,7 +110,7 @@ if __name__ == '__main__':
         X = data.drop(['label'], axis=1).to_numpy()
         y = data['label'].to_numpy()
         del data
-        labels = np.unique(y)
+#        labels = np.unique(y)
 
         #class balancing by random undersampling
         X, y = rus.fit_resample(X, y)
@@ -127,15 +128,22 @@ if __name__ == '__main__':
         F.append(f1)
         print('Overall score: %f.'%f1)
 
-        #calculate score for each class by micro-averaging
-        for l in np.unique(np.asarray(labels)):
-            #select the correct labels
-            lab_tmp = y[list(np.where(y == l)[0])]
-            #select the corresponding predicted lables
-            pred_tmp = pred[list(np.where(y == l)[0])]
-            f1 = f1_score(lab_tmp, pred_tmp, average = 'micro', labels=labels, zero_division=1)
-            F.append(f1)
-            print('Fault: %d,  F1: %f.'%(l,f1))
+        #calculate F1-score for each class
+        test_all = f1_score(y, pred, average=None, labels=labels, zero_division=1)
+        F.extend(list(test_all))
+
+        for i, f in enumerate(test_all):
+            print('Fault: %d,  F1: %f.'%(i,f))
+
+#        #calculate score for each class by micro-averaging
+#        for l in np.unique(np.asarray(labels)):
+#            #select the correct labels
+#            lab_tmp = y[list(np.where(y == l)[0])]
+#            #select the corresponding predicted lables
+#            pred_tmp = pred[list(np.where(y == l)[0])]
+#            f1 = f1_score(lab_tmp, pred_tmp, average = 'micro', zero_division=1)
+#            F.append(f1)
+#            print('Fault: %d,  F1: %f.'%(l,f1))
 
         clsResults[nodename] = F.copy()
         del y
