@@ -59,7 +59,7 @@ if __name__ == '__main__':
     #get testing nodes subtracting the training nodes from the whole list of nodes
     testnodes = list(set(csvlist) - set(trainnodes))
     #sort testnodes in ascending order
-    testnodes = sorted(testnodes)
+    testnodes = sorted(testnodes, key=lambda x: int(x.stem.split('_')[0][1:]))
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
 
     dfs = list()
