@@ -180,17 +180,18 @@ def minmaxscaling(filepath, rootpath, filename):
     """
     scaler = MinMaxScaler()
     df = pd.read_csv(filepath, header=0, index_col=0, parse_dates=True)
-    if 'busyLabel' in df.columns:
-        tmpdf = df.drop(['experiment/applicationLabel', 'applicationLabel', 'faultPred', 'faultLabel', 'busyLabel'], errors='ignore', axis=1)
-    else:
-        tmpdf = df.drop(['experiment/applicationLabel', 'applicationLabel', 'faultPred', 'faultLabel'], errors='ignore', axis=1)
+    tmpdf = df.drop(['experiment/applicationLabel', 'applicationLabel', 'faultPred', 'applicationConfigLabel', 'faultLabel', 'busyLabel'], errors='ignore', axis=1)
     tmpdf_scaled = scaler.fit_transform(tmpdf)
     fdf = pd.DataFrame(tmpdf_scaled, columns=tmpdf.columns, index=tmpdf.index)
+
     if 'experiment/applicationLabel' in df.columns:
         fdf['experiment/applicationLabel'] = df['experiment/applicationLabel']
-    else:
+    if 'applicationLabel' in df.columns:
         fdf['applicationLabel'] = df['applicationLabel']
-    fdf['faultPred'] = df['faultPred']
+    if 'applicationConfigLabel' in df.columns:
+        fdf['applicationConfigLabel'] = df['applicationConfigLabel']
+    if 'faultPred' in df.columns:
+        fdf['faultPred'] = df['faultPred']
     #the node in Experiment 4 have busyLabel
     if 'busyLabel' in df.columns:
         fdf['busyLabel'] = df['busyLabel']

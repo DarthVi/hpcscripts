@@ -4,7 +4,6 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import pathlib
-from numpy import random as ranp
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
@@ -31,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument("-f", "--suffix", type=str, default="_11f_60s_1step_mode", help="Suffix used for feature vectors names")
     args = parser.parse_args()
 
-    ranp.seed(args.seed)
+    np.random.seed(args.seed)
     random.seed(args.seed)
 
     here = pathlib.Path(__file__).parent #path of this script
@@ -70,28 +69,42 @@ if __name__ == '__main__':
     testnodes = sorted(testnodes, key=lambda x: int(x.stem.split('_')[0][1:]))
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
 
-    dfs = list()
+    #random undersampling for class balancing
+    rus = RandomUnderSampler(sampling_strategy=args.sampling, random_state=args.seed)
+
+    lX = list()
+    ly = list()
 
     for file_entry in tqdm(trainnodes):
         print("Getting data from file ", file_entry.name)
         data = pd.read_csv(file_entry)
-        dfs.append(data)
+        X = data.drop(['label'], axis=1).to_numpy()
+        y = data['label'].to_numpy()
         del data
+        #we do class balancing right here in the loop and not after, in order to save memory
+        X, y = rus.fit_resample(X, y)
+        lX.append(X)
+        ly.append(y)
+        del X
+        del y
 
-    #concatenate all the training dataframes in one dataframe
-    train_df = pd.concat(dfs, ignore_index=True)
-    del dfs
+    #concatenate all the training data
+    X = np.concatenate(lX, axis=0)
+    y = np.concatenate(ly, axis=0)
+    del lX
+    del ly
 
     #if shuffling is enabled
     if args.shuffle == True:
-        #the idiomatic pandas way to shuffle is by using df.sample
-        train_df = train_df.sample(frac=1, random_state=args.seed).reset_index(drop=True)
+        #get current RNG state
+        rng_state = np.random.get_state()
+        np.random.shuffle(X)
+        #reset RNG state to the previous state in order to shuffle y in the same way X has been shuffled
+        np.random.set_state(rng_state)
+        np.random.shuffle(y)
 
-    X = train_df.drop(['label'], axis=1).to_numpy()
-    y = train_df['label'].to_numpy()
+
     labels = np.unique(y)
-
-    del train_df
 
     #classifier model
     clf = RandomForestClassifier(n_estimators=30, max_depth=20, n_jobs=-1, random_state=args.seed)
@@ -99,8 +112,6 @@ if __name__ == '__main__':
     #random undersampling for class balancing
     rus = RandomUnderSampler(sampling_strategy=args.sampling, random_state=args.seed)
 
-    #class balancing
-    X, y = rus.fit_resample(X, y)
     #train the model and save it
     clf.fit(X, y)
     del X
@@ -137,7 +148,7 @@ if __name__ == '__main__':
         print('Overall score: %f.'%f1)
 
         #calculate F1-score for each class
-        test_all = f1_score(y, pred, average=None, labels=labels, zero_division=1)
+        test_all = f1_score(y, pred, average=None, labels=labels)
         F.extend(list(test_all))
 
         for i, f in enumerate(test_all):
