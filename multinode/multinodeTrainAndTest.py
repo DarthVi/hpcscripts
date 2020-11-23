@@ -98,11 +98,11 @@ if __name__ == '__main__':
             data = pd.read_csv(file_entry, usecols=selectionlist)
             X = data[featurelist].to_numpy()
             y = data['label']
-            labels = np.unique(np.asarray(y))
             y = y.to_numpy()
 
             #class balancing by random undersampling
             X, y = rus.fit_resample(X, y)
+            labels = np.unique(np.asarray(y))
 
             pred = clf.predict(X)
 
@@ -116,15 +116,12 @@ if __name__ == '__main__':
             F.append(f1)
             print('Overall score: %f.'%f1)
 
-            #calculate score for each class by micro-averaging
-            for l in np.unique(np.asarray(labels)):
-                #select the correct labels
-                lab_tmp = y[list(np.where(y == l)[0])]
-                #select the corresponding predicted lables
-                pred_tmp = pred[list(np.where(y == l)[0])]
-                f1 = f1_score(lab_tmp, pred_tmp, average = 'micro')
-                F.append(f1)
-                print('Fault: %d,  F1: %f.'%(l,f1))
+            #calculate F1-score for each class
+            test_all = f1_score(y, pred, average=None, labels=labels)
+            F.extend(list(test_all))
+
+            for i, f in enumerate(test_all):
+                print('Fault: %d,  F1: %f.'%(i,f))
 
             clsResults[nodename] = F.copy()
 

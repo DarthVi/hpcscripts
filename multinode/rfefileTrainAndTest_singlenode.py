@@ -85,7 +85,7 @@ if __name__ == '__main__':
     labels = labels.to_numpy()
 
     #class balancing
-    features, labels = rus.fit_resample(features, labels)
+    #features, labels = rus.fit_resample(features, labels)
 
     #60-40 train-test split
     numTrain = int(0.6*len(features))
@@ -93,6 +93,9 @@ if __name__ == '__main__':
     trainLbl = labels[:numTrain]
     testData = features[numTrain:]
     testLbl = labels[numTrain:]
+
+    trainData, trainLbl = rus.fit_resample(trainData, trainLbl)
+    testData, testLbl = rus.fit_resample(testData, testLbl)
 
     F = []
 

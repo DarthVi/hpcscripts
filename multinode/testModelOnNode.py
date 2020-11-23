@@ -97,16 +97,12 @@ if __name__ == '__main__':
     f1 = f1_score(labels, pred, average = 'weighted')
     F.append(f1)
 
-    for l in np.unique(np.asarray(labels)):
-        #select the correct labels
-        lab_tmp = labels[list(np.where(labels == l)[0])]
-        #select the corresponding predicted lables
-        pred_tmp = pred[list(np.where(labels == l)[0])]
-        f1 = f1_score(lab_tmp, pred_tmp, average = 'micro')
-        F.append(f1)
-        print('Fault: %d,  F1: %f.\n'%(l,f1))
-        with open(resultOut, 'a') as out:
-            out.write('Fault: %d,  F1: %f.\n'%(l,f1))
+    #calculate F1-score for each class
+    test_all = f1_score(y, pred, average=None)
+    F.extend(list(test_all))
+
+    for i, f in enumerate(test_all):
+        print('Fault: %d,  F1: %f.'%(i,f))
 
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
     measureType = testnode_name + "_result_image"
