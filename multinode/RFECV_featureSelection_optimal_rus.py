@@ -157,7 +157,7 @@ if __name__ == '__main__':
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
 
     resDict = OrderedDict(zip(keys, map(lambda x: [x], F)))
-    res = pd.DataFrame([F], index=[nodename])
+    res = pd.DataFrame(resDict, index=[nodename])
 
     res.to_csv(str(fileN_mostImportant))
 

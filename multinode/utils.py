@@ -7,6 +7,19 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from imblearn.under_sampling import RandomUnderSampler
 
+#######functions to count lines of a file, from https://stackoverflow.com/a/27518377/1262118
+def _make_gen(reader):
+    b = reader(1024 * 1024)
+    while b:
+        yield b
+        b = reader(1024*1024)
+
+def rawgencount(filename):
+    f = open(filename, 'rb')
+    f_gen = _make_gen(f.raw.read)
+    return sum( buf.count(b'\n') for buf in f_gen )
+########
+
 def truncate(num,decimal_places):
     dp = str(decimal_places)
     return float(re.sub(r'^(\d+\.\d{,'+re.escape(dp)+r'})\d*$',r'\1',str(num)))
@@ -60,3 +73,26 @@ def saveresults(rDict, columns, savepath):
     '''saves the classification results to CSV'''
     df = pd.DataFrame(rDict.values(), columns=columns, index=rDict.keys())
     df.to_csv(savepath, header=True, index=True)
+
+#for each fault, update a CSV containing the fault scores for each node and the number of nodes used as training
+def updateboxplotsCSV(dfpath, dfcolumn, savepath, numtrain):
+    '''saves a CSV in the format that will be useful to later plot some boxplots about the F1-scores'''
+    savefile = savepath.joinpath(dfcolumn + ".csv")
+    includeHeader = not savefile.is_file()
+    orig_df = pd.read_csv(dfpath, header=0, index_col=0)
+    columnselected = orig_df[dfcolumn].reset_index(drop=True)
+    label = pd.DataFrame({'num_train': [numtrain] * len(columnselected)})
+    res = pd.concat([columnselected, label], axis=1)
+    res.to_csv(savefile, mode='a', index=False, header=includeHeader)
+
+def summaryboxplot(readpath, column, savepath, label, title):
+    '''Plot some summary boxplots for each column'''
+    dfpath = readpath.joinpath(column + ".csv")
+    saveimg = savepath.joinpath(column + ".png")
+    df = pd.read_csv(dfpath, header=0)
+    plt.figure(figsize=(10, 6))
+    ax = sns.boxplot(x=label, y=column, data=df)
+    ax.set(ylim=(0.0, 1.0))
+    ax.set_title(title)
+    plt.draw()
+    plt.savefig(saveimg, bbox_inches="tight")

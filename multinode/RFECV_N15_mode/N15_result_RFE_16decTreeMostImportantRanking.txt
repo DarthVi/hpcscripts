@@ -1,0 +1,17 @@
+- Features ranking:
+---- median_thp_fault_alloc: 0.14785654880078966
+---- median_instructions.max: 0.12764289665663223
+---- max_opaif0/portXmitPackets: 0.10680186437445473
+---- min_power: 0.09664274148676165
+---- median_AnonPages: 0.09355517124990743
+---- median_procs_running: 0.09301252872973596
+---- median_ctxt: 0.08744710422560974
+---- perc75_instructions.max: 0.05053027974711159
+---- perc75_cache-references.max: 0.04598125729743588
+---- median_instructions.perc75: 0.04539248593853555
+---- median_cache-references.max: 0.03436153975787314
+---- median_branch-instructions.max: 0.02597643407094011
+---- median_Active: 0.022538062272054075
+---- perc75_ctxt: 0.008367476080756433
+---- std_opaif0/portXmitPackets: 0.007223492027731282
+---- median_pgfault: 0.006670117283670575

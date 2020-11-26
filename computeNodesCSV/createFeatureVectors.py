@@ -105,7 +105,7 @@ def calculateIndicators(column, orig_df, corrcolumns, window, step, numfeatures,
 
         if compute_correlations == True:
             for othercol in orig_df.columns:
-                if othercol != column and str('corr_' + column + '_' + othercol) in corrcols:
+                if othercol != column and str('corr_' + column + '_' + othercol) in corrcolumns:
                     correlation_column_other = orig_df[column].rolling(window).corr(orig_df[othercol]).iloc[window-1:][::step].reset_index(drop=True)
                     correlation_column_other.fillna(0, inplace=True)
                     correlation_column_other = correlation_column_other.replace([np.inf], +1)
