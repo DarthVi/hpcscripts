@@ -18,6 +18,8 @@ import sys
 import matplotlib.pyplot as plt
 from imblearn.under_sampling import RandomUnderSampler
 
+from utils import plot_heatmap
+
 def truncate(num,decimal_places):
     dp = str(decimal_places)
     return float(re.sub(r'^(\d+\.\d{,'+re.escape(dp)+r'})\d*$',r'\1',str(num)))
@@ -104,6 +106,7 @@ if __name__ == '__main__':
     numImportantFeatures = rfecv.n_features_
     fileN_mostImportant = savepath.joinpath(nodename + "_result_RFE_optimal" + str(numImportantFeatures) + "mostImportant.csv")
     featureFile = savepath.joinpath(nodename + "_RFE_optimal" + str(numImportantFeatures) + "mostImportantFeatures.txt")
+    summarypng = savepath.joinpath(nodename + "_result_RFE_" + str(len(featurelist)) + "mostImportant_summary.png")
 
     print("Optimal number of features : %d" % numImportantFeatures)
 
@@ -128,7 +131,7 @@ if __name__ == '__main__':
     labels = labels.to_numpy()
 
     #class balancing
-    features, labels = rus.fit_resample(features, labels)
+    #features, labels = rus.fit_resample(features, labels)
 
     #60-40 train-test split
     numTrain = int(0.6*len(features))
@@ -136,6 +139,9 @@ if __name__ == '__main__':
     trainLbl = labels[:numTrain]
     testData = features[numTrain:]
     testLbl = labels[numTrain:]
+
+    trainData, trainLbl = rus.fit_resample(trainData, trainLbl)
+    testData, testLbl = rus.fit_resample(testData, testLbl)
 
     F = []
 
@@ -157,9 +163,12 @@ if __name__ == '__main__':
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
 
     resDict = OrderedDict(zip(keys, map(lambda x: [x], F)))
+    plotDict = dict()
+    plotDict[nodename] = F
     res = pd.DataFrame(resDict, index=[nodename])
 
     res.to_csv(str(fileN_mostImportant))
 
     measureType = savepath.joinpath(nodename + "_result_RFE_optimal" + str(numImportantFeatures) + "mostImportant.png")
     plot_bar_x(measureType, keys, F)
+    plot_heatmap("F1-scores", plotDict, keys, summarypng, True)

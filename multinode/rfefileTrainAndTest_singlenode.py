@@ -14,6 +14,8 @@ from imblearn.under_sampling import RandomUnderSampler
 from FileFeatureReader.featurereaders import RFEFeatureReader
 from FileFeatureReader.featurereader import FeatureReader
 
+from utils import plot_heatmap
+
 def truncate(num,decimal_places):
     dp = str(decimal_places)
     return float(re.sub(r'^(\d+\.\d{,'+re.escape(dp)+r'})\d*$',r'\1',str(num)))
@@ -71,6 +73,7 @@ if __name__ == '__main__':
 
     fileN_mostImportant = savepath.joinpath(nodename + "_result_RFE_" + str(len(featurelist)) + "mostImportant.csv")
     measureType = savepath.joinpath(nodename + "_result_RFE_" + str(len(featurelist)) + "mostImportant.png")
+    summarypng = savepath.joinpath(nodename + "_result_RFE_" + str(len(featurelist)) + "mostImportant_summary.png")
 
     data = pd.read_csv(input_file, usecols=selectionlist)
 
@@ -117,7 +120,10 @@ if __name__ == '__main__':
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
 
     resDict = OrderedDict(zip(keys, map(lambda x: [x], F)))
+    plotDict = dict()
+    plotDict[nodename] = F
     res = pd.DataFrame(resDict, index=[nodename])
 
     res.to_csv(str(fileN_mostImportant))
     plot_bar_x(measureType, keys, F)
+    plot_heatmap("F1-scores", plotDict, keys, summarypng, True)

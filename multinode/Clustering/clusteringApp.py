@@ -6,18 +6,20 @@ import plotly.express as px
 from scipy.spatial import distance
 from sklearn.preprocessing import LabelEncoder
 from sklearn.mixture import BayesianGaussianMixture
+from copy import deepcopy
 
 def mahalanobis(u, v, C):
     CI = np.linalg.inv(C)
     return distance.mahalanobis(u, v, CI)
 
+@st.cache(suppress_st_warning=True) 
 def get_mahlanobis_distances(data, mixture_model):
     distances = [mahalanobis(x, mixture_model.means_[mixture_model.predict([x])[0]], mixture_model.covariances_[mixture_model.predict([x])[0]]) for x in data]
     return distances
 
+@st.cache(suppress_st_warning=True) 
 def smooth_data(files, columns, faults):
     #my_bar = st.progress(0)
-    length = len(files)
     cols_to_load = columns + ['faultLabel']
 
     meanlist = list()
@@ -54,8 +56,11 @@ def smooth_data(files, columns, faults):
     #exit(1)
     return df
 
+
 def mark_outliers(data, threshold):
     data.loc[df['distance'] > threshold, 'cluster'] = 'outlier'
+    return data
+
 
 def cluster_encode(data, outlier_str, label_col):
     encoder = LabelEncoder()
@@ -67,13 +72,9 @@ def cluster_encode(data, outlier_str, label_col):
     data[label_col] = data[label_col].apply(lambda x: (x + 1) if not isinstance(x, str) else x)
 
 
-def mark_outliers(data, threshold):
-    df.loc[df['distance'] > threshold, 'cluster'] = 'outlier'
-
-
 def plot_scatter(data, columns, cluster_str, outlier_str):
     colors = [x for x in px.colors.qualitative.Alphabet if x != '#F6222E'] #remove red, reserved for outliers
-    fig = px.scatter_3d(df, x=columns[0], y=columns[1], z=columns[2], color=cluster_str, symbol=cluster_str, color_discrete_sequence=colors)
+    fig = px.scatter_3d(data, x=columns[0], y=columns[1], z=columns[2], color=cluster_str, symbol=cluster_str, color_discrete_sequence=colors, hover_name="nodename")
 
     #if an entry is an outlier, plot it with a cross and use color red
     #otherwise use a circle and the corresponding cluster color
@@ -84,7 +85,45 @@ def plot_scatter(data, columns, cluster_str, outlier_str):
         else:
             fig.data[i].marker.symbol = 'circle'
 
+    #fig.update_layout(width=500, height=500)
     st.plotly_chart(fig)
+
+@st.cache(suppress_st_warning=True, allow_output_mutation=True) 
+def compute_BGMM(data, n_components, column1, column2, column3):
+    X = data.drop(['nodename'], axis=1).to_numpy()
+
+    bgmm = BayesianGaussianMixture(n_components=n_components, random_state=42)
+
+    labels = bgmm.fit(X).predict(X)
+    distances = get_mahlanobis_distances(X, bgmm)
+    #create new dataframe with distances and clusters' labels
+    df = pd.DataFrame({'nodename':data['nodename'], col1: X[:, 0], col2: X[:, 1], col3: X[:, 2], 'distance': distances, 'cluster': labels})
+    #transform the clusters' labels in string
+    df['cluster'] = df['cluster'].astype(str)
+    return df
+
+
+def stringify_cluster(data):
+    data['cluster'] = data['cluster'].astype(str)
+    return data
+
+
+def order_dataframe_by_cluster(data):
+    #it will be used to order the DataFrame based on cluster labels
+    clusters = set(np.unique(data['cluster'])) - {'outlier'}
+    order_dict = dict()
+    for c in clusters:
+        order_dict[c] = int(c)
+    order_dict['outlier'] = 0
+
+    #sort the dataframe in order to plot the legend in an ordered way using plotly
+    data.sort_values(by=['cluster'], key=lambda x: x.map(order_dict) , inplace=True)
+    return data
+
+def get_prototypes(data):
+    data = data[data['cluster'] != 'outlier']
+    data = data.groupby('cluster').min()
+    return data
 
 important_columns = ["thp_fault_alloc",
                      "instructions.max",
@@ -131,34 +170,23 @@ if __name__ == '__main__':
 
         smoothed_df = smooth_data(nodefiles, [col1, col2, col3], fault_label_selected)
 
-        X = smoothed_df.drop(['nodename'], axis=1).to_numpy()
-
-        bgmm = BayesianGaussianMixture(n_components=n_components, random_state=42)
-
-        labels = bgmm.fit(X).predict(X)
-        distances = get_mahlanobis_distances(X, bgmm)
-        #create new dataframe with distances and clusters' labels
-        df = pd.DataFrame({'nodename':smoothed_df['nodename'], col1: X[:, 0], col2: X[:, 1], col3: X[:, 2], 'distance': distances, 'cluster': labels})
-        #transform the clusters' labels in string
-        df['cluster'] = df['cluster'].astype(str)
+        df = compute_BGMM(smoothed_df, n_components, col1, col2, col3)
         #mark the outliers in the data
-        mark_outliers(df, threshold)
+        df_marked = mark_outliers(deepcopy(df), threshold)
 
         #encode again the labels, in order to have consecutive ones like 1, 2, 3 ecc instead of 1, 5, 7, and so on
-        cluster_encode(df, 'outlier', 'cluster')
+        cluster_encode(df_marked, 'outlier', 'cluster')
         #transform again the clusters' labels in string since LabelEncoder gives integers
-        df['cluster'] = df['cluster'].astype(str)
+        df_marked = stringify_cluster(df_marked)
 
-        #it will be used to order the DataFrame based on cluster labels
-        clusters = set(np.unique(df['cluster'])) - {'outlier'}
-        order_dict = dict()
-        for c in clusters:
-            order_dict[c] = int(c)
-        order_dict['outlier'] = 0
+        df_marked = order_dataframe_by_cluster(df_marked)
 
-        #sort the dataframe in order to plot the legend in an ordered way using plotly
-        df.sort_values(by=['cluster'], key=lambda x: x.map(order_dict) , inplace=True)
+        plot_scatter(df_marked, [col1, col2, col3], 'cluster', 'outlier')
 
-        plot_scatter(df, [col1, col2, col3], 'cluster', 'outlier')
+        st.subheader("Resulting dataframe after clustering")
+        st.write(df_marked)
 
-        st.write(df)
+        prototype_df = get_prototypes(deepcopy(df_marked))
+
+        st.subheader("Prototypes for each cluster")
+        st.write(prototype_df)

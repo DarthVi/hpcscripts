@@ -58,6 +58,8 @@ if __name__ == '__main__':
     possible_trainnodes = list(filter(lambda x: args.tmin <= int(x.stem.split('_')[0][1:]) <= args.tmax, csvlist))
     random.shuffle(possible_trainnodes)
     trainnodes = random.sample(possible_trainnodes, k=args.sample)
+    #print(trainnodes)
+    #exit(1)
 
     #get training nodes names from filepath
     trainnames = map(lambda x: str(x).split('/')[-1].split('_')[0], trainnodes)
@@ -94,7 +96,7 @@ if __name__ == '__main__':
         #read how many lines there are in the CSV, excluding the header line
         numlines = rawgencount(file_entry) - 1
         #rows to skip, if sampling is 1, the list will be empty and no lines will be skipped
-        skiplist = list(set(range(1, numlines + 1)) - set(range(1, numlines + 1, args.step))) 
+        skiplist = list(set(range(1, numlines + 1)) - set(range(1, numlines + 1, args.step)))
         data = pd.read_csv(file_entry, usecols=selectionlist, header=0, skiprows=skiplist)
         y = data['label'].to_numpy()
         X = data.drop(['label'], axis=1)
