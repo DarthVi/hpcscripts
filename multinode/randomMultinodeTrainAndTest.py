@@ -70,11 +70,22 @@ if __name__ == '__main__':
     lX = list()
     ly = list()
 
+    columnlist = list()
+
     for file_entry in tqdm(trainnodes):
         print("Getting data from file ", file_entry.name)
         data = pd.read_csv(file_entry)
-        X = data.drop(['label'], axis=1).to_numpy()
+
+        #initialize columnlist to use to reorder columns if this is empty
+        if not columnlist:
+            columnlist = list(data.columns)
+            columnlist.remove('label')
+
         y = data['label'].to_numpy()
+        X = data.drop(['label'], axis=1)
+        #reorder columns
+        X = X[columnlist]
+        X = X.to_numpy()
         del data
         #we do class balancing right here in the loop and not after, in order to save memory
         X, y = rus.fit_resample(X, y)
@@ -119,8 +130,13 @@ if __name__ == '__main__':
 
         #get the dataframe considering only specific columns
         data = pd.read_csv(file_entry)
-        X = data.drop(['label'], axis=1).to_numpy()
         y = data['label'].to_numpy()
+        X = data.drop(['label'], axis=1)
+
+        #reorder columns
+        X = X[columnlist]
+        X = X.to_numpy()
+        
         del data
 #        labels = np.unique(y)
 

@@ -96,8 +96,11 @@ if __name__ == '__main__':
         #rows to skip, if sampling is 1, the list will be empty and no lines will be skipped
         skiplist = list(set(range(1, numlines + 1)) - set(range(1, numlines + 1, args.step))) 
         data = pd.read_csv(file_entry, usecols=selectionlist, header=0, skiprows=skiplist)
-        X = data.drop(['label'], axis=1).to_numpy()
         y = data['label'].to_numpy()
+        X = data.drop(['label'], axis=1)
+        #reorder column
+        X = X[featurelist]
+        X = X.to_numpy()
         del data
         #we do class balancing right here in the loop and not after, in order to save memory
         X, y = rus.fit_resample(X, y)
@@ -142,8 +145,11 @@ if __name__ == '__main__':
 
         #get the dataframe considering only specific columns
         data = pd.read_csv(file_entry, usecols=selectionlist)
-        X = data.drop(['label'], axis=1).to_numpy()
         y = data['label'].to_numpy()
+        X = data.drop(['label'], axis=1)
+        #reorder columns
+        X = X[featurelist]
+        X = X.to_numpy()
         del data
 #        labels = np.unique(y)
 

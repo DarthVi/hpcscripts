@@ -3,14 +3,13 @@
 declare -a savefolders=()
 
 csvpath=$1
-featfile=$2
-savepath=$3
-sumpath=$4
-step=$5
+savepath=$2
+tmin=$3
+tmax=$4
 
-for n in {1..16}
+for n in {1..5}
 do
-	savefolders=("${savefolders[@]}" RN"$n"n_f)
+	savefolders=("${savefolders[@]}" RN"$n"d)
 done
 
 declare -a resultsfolders=()
@@ -22,14 +21,11 @@ do
 	resultsfolders=("${resultsfolders[@]}" "$savepath"/"$folder")
 done
 
-#create summary folder if it does not exist
-mkdir -p "$sumpath"
-
 #execute the experiments
-for i in {0..15}
+for i in {0..4}
 do
 	k=$((i+1))
 	echo "Starting experiment $k"
-	python -u randomMultinodeTrainAndTest_featureSelected.py -p "$csvpath" -v "${resultsfolders[$i]}" -k "$k" -d "$sumpath" -e "$featfile" -f "$step" 2>&1 | tee logfile.log
+	python -u randomMultinodeTrainAndTest.py -p "$csvpath" -v "${resultsfolders[$i]}" -k "$k" -b "$tmin" -c "$tmax" 2>&1 | tee logfile_1.log
 	echo "Finished experiment $k"
 done

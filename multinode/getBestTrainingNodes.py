@@ -40,11 +40,14 @@ if __name__ == '__main__':
     csvlist = sorted(csvlist, key=lambda x: int(x.stem.split('_')[0][1:]))
 
     #nodedict = dict()
+    selectedcols = list()
     dataset = list()
     for file_entry in tqdm(list(csvlist)):
-        selectedcols = pd.read_csv(file_entry, header=0, index_col=0, parse_dates=True, nrows=1).columns.drop(['faultLabel'])
+        if not selectedcols:
+            selectedcols.extend(list(pd.read_csv(file_entry, header=0, index_col=0, parse_dates=True, nrows=1).columns.drop(['faultLabel'])))
         #skip first 5 hours, take next 2 hours of data
-        df = pd.read_csv(file_entry, header=0, index_col=0, parse_dates=True, usecols=['Time'] + list(selectedcols), skiprows=range(1,18000), nrows=7200)
+        df = pd.read_csv(file_entry, header=0, index_col=0, parse_dates=True, usecols=['Time'] + selectedcols, skiprows=range(1,18000), nrows=7200)
+        df = df[selectedcols]
         X = df.to_numpy()
         #trick to associate numpy arrays to node names: ndarray.tobytes() will return a raw python bytes string which is immutable
         #nodedict[X.tobytes()] = file_entry.stem
@@ -93,8 +96,8 @@ if __name__ == '__main__':
     while neighbors_list and i < len(csvlist):
         file_entry = csvlist[i]
         i += 1
-        selectedcols = pd.read_csv(file_entry, header=0, index_col=0, parse_dates=True, nrows=1).columns.drop(['faultLabel'])
-        df = pd.read_csv(file_entry, header=0, index_col=0, parse_dates=True, usecols=['Time'] + list(selectedcols), skiprows=range(1,18000), nrows=7200)
+        df = pd.read_csv(file_entry, header=0, index_col=0, parse_dates=True, usecols=['Time'] + selectedcols, skiprows=range(1,18000), nrows=7200)
+        df = df[selectedcols]
         X = df.to_numpy()
         del df
         for candidate in neighbors_list:

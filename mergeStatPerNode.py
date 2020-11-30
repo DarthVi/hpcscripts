@@ -60,7 +60,7 @@ if __name__ == '__main__':
         nodes = list(map(str.strip, compnodes_file))
 
     main_df = None
-    labelCol = ['experiment/applicationLabel', 'faultPred', 'faultLabel']
+    labelCol = ['experiment/applicationLabel', 'applicationLabel', 'applicationConfigLabel', 'busyLabel', 'faultPred', 'faultLabel']
 
     for node in nodes:
         print("Processing node ", node)
