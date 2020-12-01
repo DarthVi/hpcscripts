@@ -40,6 +40,9 @@ if __name__ == '__main__':
         print("-f (--step) argument must be >= 1")
         exit(1)
 
+    if args.sampling == "none":
+        print("Warning: sampling set to \"none\", no class balancing will be performed")
+
     np.random.seed(args.seed)
     random.seed(args.seed)
 
@@ -79,7 +82,8 @@ if __name__ == '__main__':
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
 
     #random undersampling for class balancing
-    rus = RandomUnderSampler(sampling_strategy=args.sampling, random_state=args.seed)
+    if args.sampling != "none":
+        rus = RandomUnderSampler(sampling_strategy=args.sampling, random_state=args.seed)
 
     rfe_feature_reader = FeatureReader(RFEFeatureReader(), featfile)
 
@@ -105,7 +109,8 @@ if __name__ == '__main__':
         X = X.to_numpy()
         del data
         #we do class balancing right here in the loop and not after, in order to save memory
-        X, y = rus.fit_resample(X, y)
+        if args.sampling != "none":
+            X, y = rus.fit_resample(X, y)
         lX.append(X)
         ly.append(y)
         del X
@@ -156,7 +161,8 @@ if __name__ == '__main__':
 #        labels = np.unique(y)
 
         #class balancing by random undersampling
-        X, y = rus.fit_resample(X, y)
+        if args.sampling != "none":
+            X, y = rus.fit_resample(X, y)
         #predict labels for test set
         pred = clf.predict(X)
         del X

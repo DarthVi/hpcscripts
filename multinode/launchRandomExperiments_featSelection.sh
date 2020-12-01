@@ -7,10 +7,12 @@ featfile=$2
 savepath=$3
 sumpath=$4
 step=$5
+default_sampling="majority"
+sampling=${6:-$default_sampling}
 
 for n in {1..16}
 do
-	savefolders=("${savefolders[@]}" RN"$n"n_f)
+	savefolders=("${savefolders[@]}" RN"$n"_f)
 done
 
 declare -a resultsfolders=()
@@ -30,6 +32,6 @@ for i in {0..15}
 do
 	k=$((i+1))
 	echo "Starting experiment $k"
-	python -u randomMultinodeTrainAndTest_featureSelected.py -p "$csvpath" -v "${resultsfolders[$i]}" -k "$k" -d "$sumpath" -e "$featfile" -f "$step" 2>&1 | tee logfile_2.log
+	python -u randomMultinodeTrainAndTest_featureSelected.py -p "$csvpath" -v "${resultsfolders[$i]}" -k "$k" -d "$sumpath" -e "$featfile" -f "$step" -z "$sampling" 2>&1 | tee logfile_2.log
 	echo "Finished experiment $k"
 done
