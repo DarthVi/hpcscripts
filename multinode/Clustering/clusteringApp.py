@@ -13,47 +13,46 @@ def mahalanobis(u, v, C):
     return distance.mahalanobis(u, v, CI)
 
 @st.cache(suppress_st_warning=True) 
-def get_mahlanobis_distances(data, mixture_model):
-    distances = [mahalanobis(x, mixture_model.means_[mixture_model.predict([x])[0]], mixture_model.covariances_[mixture_model.predict([x])[0]]) for x in data]
+def get_mahlanobis_distances(data, mixture_model, labs):
+    #distances = [mahalanobis(x, mixture_model.means_[mixture_model.predict([x])[0]], mixture_model.covariances_[mixture_model.predict([x])[0]]) for x in data]
+    distances = [mahalanobis(x, mixture_model.means_[l], mixture_model.covariances_[l]) for x,l in zip(data, labs)]
     return distances
 
 @st.cache(suppress_st_warning=True) 
-def smooth_data(files, columns, faults):
-    #my_bar = st.progress(0)
-    cols_to_load = columns + ['faultLabel']
+def smooth_data(files, columns, faults, apps):
+    my_bar = st.progress(0)
+    cols_to_load = columns + ['faultLabel', 'applicationLabel']
 
     meanlist = list()
-    #perc_upgrade = int(100 / length)
+    files_len = len(files)
     
     with st.spinner('Wait for computation...'):
-        for file in files:
-            #print(file)
+        for i,file in enumerate(files):
             #read only the columns we are interested in
-            n = pd.read_csv(file, usecols=cols_to_load, header=0, parse_dates=True)
+            n = pd.read_csv(file, usecols=cols_to_load, header=0)
             #select only the data relative to the faults we are interested in
             n = n[n['faultLabel'].isin(faults)]
-            #print(n)
+            #select only the data relative to the applications we are interested in
+            n = n[n['applicationLabel'].isin(apps)]
+            
             #drop the fault label
-            n.drop(['faultLabel'], axis=1, inplace=True)
+            n.drop(['faultLabel', 'applicationLabel'], axis=1, inplace=True)
 
             #reorder columns
             n = n[columns]
 
             #get the mean of every column, convert Series to dataframe and transpose
-            #print(n.mean())
             n = n.mean().to_frame().T
-            #print(n)
 
             #trick to insert nodename as first column
             n['nodename'] = file.stem
             nodename = n.pop('nodename')
             n.insert(0, 'nodename', nodename)
             meanlist.append(n)
-            #my_bar.progress(perc_upgrade) 
+            my_bar.progress((i+1)/files_len) 
 
     df = pd.concat(meanlist, axis=0).reset_index(drop=True)
-    #print(df)
-    #exit(1)
+    my_bar.empty()
     return df
 
 
@@ -63,18 +62,22 @@ def mark_outliers(data, threshold):
 
 
 def cluster_encode(data, outlier_str, label_col):
+    unique_labels = np.unique(data[label_col])
     encoder = LabelEncoder()
     encoder.fit(data[label_col])
-    outlier_enc = encoder.transform([outlier_str])[0]
+    if outlier_str in unique_labels:
+        outlier_enc = encoder.transform([outlier_str])[0]
     new_enc = encoder.transform(data[label_col])
     data[label_col] = new_enc
-    data.loc[data[label_col] == outlier_enc, label_col] = outlier_str
+    if outlier_str in unique_labels:
+        data.loc[data[label_col] == outlier_enc, label_col] = outlier_str
     data[label_col] = data[label_col].apply(lambda x: (x + 1) if not isinstance(x, str) else x)
 
 
 def plot_scatter(data, columns, cluster_str, outlier_str):
     colors = [x for x in px.colors.qualitative.Alphabet if x != '#F6222E'] #remove red, reserved for outliers
-    fig = px.scatter_3d(data, x=columns[0], y=columns[1], z=columns[2], color=cluster_str, symbol=cluster_str, color_discrete_sequence=colors, hover_name="nodename")
+    fig = px.scatter_3d(data, x=columns[0], y=columns[1], z=columns[2], color=cluster_str, symbol=cluster_str, color_discrete_sequence=colors, 
+        hover_name="nodename", hover_data=['distance'])
 
     #if an entry is an outlier, plot it with a cross and use color red
     #otherwise use a circle and the corresponding cluster color
@@ -88,16 +91,16 @@ def plot_scatter(data, columns, cluster_str, outlier_str):
     #fig.update_layout(width=500, height=500)
     st.plotly_chart(fig)
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True) 
+@st.cache(suppress_st_warning=True) 
 def compute_BGMM(data, n_components, column1, column2, column3):
     X = data.drop(['nodename'], axis=1).to_numpy()
 
     bgmm = BayesianGaussianMixture(n_components=n_components, random_state=42)
 
     labels = bgmm.fit(X).predict(X)
-    distances = get_mahlanobis_distances(X, bgmm)
+    distances = get_mahlanobis_distances(X, bgmm, labels)
     #create new dataframe with distances and clusters' labels
-    df = pd.DataFrame({'nodename':data['nodename'], col1: X[:, 0], col2: X[:, 1], col3: X[:, 2], 'distance': distances, 'cluster': labels})
+    df = pd.DataFrame({'nodename':data['nodename'], column1: X[:, 0], column2: X[:, 1], column3: X[:, 2], 'distance': distances, 'cluster': labels})
     #transform the clusters' labels in string
     df['cluster'] = df['cluster'].astype(str)
     return df
@@ -140,6 +143,15 @@ important_columns = ["thp_fault_alloc",
 
 faults = ['healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
 
+applications = {
+    'idle': 0,
+    'Kripke': 20,
+    'AMG': 21,
+    'Nekbone': 22,
+    'PENNANT': 23,
+    'HPL': 24
+}
+
 if __name__ == '__main__':
     st.title("Clustering HPC nodes")
 
@@ -151,8 +163,13 @@ if __name__ == '__main__':
 
     #select the which batch of data to consider (faulty or non faulty)
     st.write("Select the fault data to consider")
-    fault_selected = st.multiselect("Which faults?", faults)
+    fault_selected = st.multiselect("Which faults?", faults, default=faults[0])
     fault_label_selected = [x for x, el in enumerate(faults) if el in fault_selected]
+
+    st.write("Select the applications you are interested in")
+    app_keys = list(applications.keys())
+    app_selected = st.multiselect("Which applications?", app_keys, default=app_keys)
+    app_label_selected = [applications[x] for x in app_selected]
 
      #get folder in which CSV data of HPC nodes are stored
     folderPath = st.text_input('Enter folder path:')
@@ -168,7 +185,7 @@ if __name__ == '__main__':
     if st.button("Run"):
         nodefiles = sorted(nodefiles, key=lambda x: int(x.stem[1:]))
 
-        smoothed_df = smooth_data(nodefiles, [col1, col2, col3], fault_label_selected)
+        smoothed_df = smooth_data(nodefiles, [col1, col2, col3], fault_label_selected, app_label_selected)
 
         df = compute_BGMM(smoothed_df, n_components, col1, col2, col3)
         #mark the outliers in the data
