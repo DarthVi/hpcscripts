@@ -9,3 +9,4 @@ data1/computeNodesCSV/*.csv
 multinode/backupWrongExperiments/*
 multinode/debugM7M8.zip
 *.joblib
+*.log

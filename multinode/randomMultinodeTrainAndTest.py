@@ -1,7 +1,9 @@
 import random
 from collections import OrderedDict
-
+import os
+#os.environ["MODIN_ENGINE"] = "ray"
 import numpy as np
+#import modin.pandas as pd
 import pandas as pd
 import pathlib
 from sklearn.ensemble import RandomForestClassifier
@@ -44,8 +46,10 @@ if __name__ == '__main__':
     experiments_scores = OrderedDict()
 
     csvlist = list(csvdir.glob("*.csv"))
-    #shuffle the list of CSVs randomly and then choose a random subsample of k computing nodes
+    csvlist = sorted(csvlist, key=lambda x: int(x.stem.split('_')[0][1:]))
+    #filter out edge nodes
     possible_trainnodes = list(filter(lambda x: args.tmin <= int(x.stem.split('_')[0][1:]) <= args.tmax, csvlist))
+    #shuffle the list of CSVs randomly and then choose a random subsample of k computing nodes
     random.shuffle(possible_trainnodes)
     trainnodes = random.sample(possible_trainnodes, k=args.sample)
 

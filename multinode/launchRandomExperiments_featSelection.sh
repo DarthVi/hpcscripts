@@ -7,8 +7,14 @@ featfile=$2
 savepath=$3
 sumpath=$4
 step=$5
-default_sampling="majority"
-sampling=${6:-$default_sampling}
+balancetest_default="yes"
+balancetest=${6:-$balancetest_default}
+shuffling_default="no"
+shuffling=${7:-$shuffling_default}
+feattype_default="rfe"
+feattype=${8:-$feattype_default}
+numfeat_default="100"
+numfeat=${9:-$numfeat_default}
 
 for n in {1..16}
 do
@@ -32,6 +38,6 @@ for i in {0..15}
 do
 	k=$((i+1))
 	echo "Starting experiment $k"
-	python -u randomMultinodeTrainAndTest_featureSelected.py -p "$csvpath" -v "${resultsfolders[$i]}" -k "$k" -d "$sumpath" -e "$featfile" -f "$step" -z "$sampling" 2>&1 | tee logfile_2.log
+	python -u randomMultinodeTrainAndTest_featureSelected.py -p "$csvpath" -v "${resultsfolders[$i]}" -k "$k" -d "$sumpath" -e "$featfile" -i "$feattype" -l "$numfeat" -f "$step" -g "$balancetest" -s "$shuffling" | tee "logfile_${k}.log"
 	echo "Finished experiment $k"
 done

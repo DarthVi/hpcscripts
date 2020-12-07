@@ -1,6 +1,7 @@
 import random
 from collections import OrderedDict
 import os
+from pprint import pprint
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ from tqdm import tqdm
 from imblearn.under_sampling import RandomUnderSampler
 
 from utils import plot_heatmap, str2bool, saveresults, updateboxplotsCSV, rawgencount
-from FileFeatureReader.featurereaders import RFEFeatureReader
+from FileFeatureReader.featurereaders import RFEFeatureReader, DTFeatureReader
 from FileFeatureReader.featurereader import FeatureReader
 
 if __name__ == '__main__':
@@ -34,14 +35,25 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--sumpath", type=str, default="./boxplots", help="Path in which CSVs summary for boxplots will be stored")
     parser.add_argument("-e", "--featfile", type=str, default="./RFEFile.txt", help="Path of the feature list file")
     parser.add_argument("-f", "--step", type=int, default=1, help="Sampling used to read the training CSVs, that is how many lines to skip before picking up an element")
+    parser.add_argument("-g", "--balancetest", type=str2bool, nargs='?', const=True, default=True, help="'yes' to balance the test set, 'no' otheriwse")
+    parser.add_argument("-i", "--feattype", type=str, default="rfe", help="'rfe' to read from RFE file, 'dt' to read from dt-like file")
+    parser.add_argument("-l", "--numfeat", type=int, default=100, help="Number of features to use when selecting them via DT file")
     args = parser.parse_args()
 
     if args.step < 1:
         print("-f (--step) argument must be >= 1")
         exit(1)
 
-    if args.sampling == "none":
-        print("Warning: sampling set to \"none\", no class balancing will be performed")
+    if args.feattype != "rfe" and args.feattype != 'dt':
+        print("-i (--feattype) can be 'rfe' or 'dt'")
+        exit(1)
+
+    if args.feattype == 'dt' and args.numfeat < 1:
+        print("-l (--numfeat) must be > 1")
+        exit(1)
+
+    if args.balancetest == False:
+        print("Warning: class balancing will not be performed on the test set")
 
     np.random.seed(args.seed)
     random.seed(args.seed)
@@ -49,7 +61,7 @@ if __name__ == '__main__':
     csvdir = pathlib.Path(args.path) #get the directory in which there are the files to analyze
     resultsfile = pathlib.Path(args.savepath).joinpath("classification_results.csv")
     trainfile = pathlib.Path(args.savepath).joinpath("trainingnodes.csv")
-    modelfile = pathlib.Path(args.savepath).joinpath("model.joblib")
+    #modelfile = pathlib.Path(args.savepath).joinpath("model.joblib")
     summarypng = pathlib.Path(args.savepath).joinpath("summary.png")
     sumpath = pathlib.Path(args.sumpath)
     featfile = pathlib.Path(args.featfile)
@@ -57,8 +69,10 @@ if __name__ == '__main__':
     experiments_scores = OrderedDict()
 
     csvlist = list(csvdir.glob("*.csv"))
-    #shuffle the list of CSVs randomly and then choose a random subsample of k computing nodes
+    csvlist = sorted(csvlist, key=lambda x: int(x.stem.split('_')[0][1:]))
+    #filter out edge nodes
     possible_trainnodes = list(filter(lambda x: args.tmin <= int(x.stem.split('_')[0][1:]) <= args.tmax, csvlist))
+    #shuffle the list of CSVs randomly and then choose a random subsample of k computing nodes
     random.shuffle(possible_trainnodes)
     trainnodes = random.sample(possible_trainnodes, k=args.sample)
     #print(trainnodes)
@@ -82,13 +96,18 @@ if __name__ == '__main__':
     keys = ['overall','healthy', 'memeater','memleak', 'membw', 'cpuoccupy','cachecopy','iometadata','iobandwidth']
 
     #random undersampling for class balancing
-    if args.sampling != "none":
-        rus = RandomUnderSampler(sampling_strategy=args.sampling, random_state=args.seed)
-
-    rfe_feature_reader = FeatureReader(RFEFeatureReader(), featfile)
+    rus = RandomUnderSampler(sampling_strategy=args.sampling, random_state=args.seed)
 
     #get features used for training
-    featurelist = rfe_feature_reader.getFeats()
+    if args.feattype == 'rfe':
+        rfe_feature_reader = FeatureReader(RFEFeatureReader(), featfile)
+        featurelist = rfe_feature_reader.getFeats()
+    else:
+        dt_feature_reader = FeatureReader(DTFeatureReader(), featfile)
+        featurelist = dt_feature_reader.getNFeats(args.numfeat)
+
+    print("Using the following features:")
+    pprint(featurelist)
     #add the label to the previous list
     selectionlist = featurelist + ['label']
 
@@ -109,8 +128,7 @@ if __name__ == '__main__':
         X = X.to_numpy()
         del data
         #we do class balancing right here in the loop and not after, in order to save memory
-        if args.sampling != "none":
-            X, y = rus.fit_resample(X, y)
+        X, y = rus.fit_resample(X, y)
         lX.append(X)
         ly.append(y)
         del X
@@ -142,7 +160,7 @@ if __name__ == '__main__':
     clf.fit(X, y)
     del X
     del y
-    dump(clf, modelfile)
+    #dump(clf, modelfile)
 
     clsResults = OrderedDict()
 
@@ -161,7 +179,7 @@ if __name__ == '__main__':
 #        labels = np.unique(y)
 
         #class balancing by random undersampling
-        if args.sampling != "none":
+        if args.balancetest == True:
             X, y = rus.fit_resample(X, y)
         #predict labels for test set
         pred = clf.predict(X)
