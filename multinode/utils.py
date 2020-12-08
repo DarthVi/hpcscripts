@@ -75,7 +75,7 @@ def saveresults(rDict, columns, savepath):
     df.to_csv(savepath, header=True, index=True)
 
 #for each fault, update a CSV containing the fault scores for each node and the number of nodes used as training
-def updateboxplotsCSV(dfpath, dfcolumn, savepath, numtrain):
+def updateboxplotsCSV(dfpath, dfcolumn, savepath, numtrain, numrun=None):
     '''saves a CSV in the format that will be useful to later plot some boxplots about the F1-scores'''
     savefile = savepath.joinpath(dfcolumn + ".csv")
     includeHeader = not savefile.is_file()
@@ -83,6 +83,9 @@ def updateboxplotsCSV(dfpath, dfcolumn, savepath, numtrain):
     columnselected = orig_df[dfcolumn].reset_index(drop=True)
     label = pd.DataFrame({'num_train': [numtrain] * len(columnselected)})
     res = pd.concat([columnselected, label], axis=1)
+    if numrun != None:
+        numrun_label = pd.DataFrame({'num_iter': [numrun] * len(columnselected)})
+        res = pd.concat([res, numrun_label], axis=1)
     res.to_csv(savefile, mode='a', index=False, header=includeHeader)
 
 def summaryboxplot(readpath, column, savepath, label, title):
