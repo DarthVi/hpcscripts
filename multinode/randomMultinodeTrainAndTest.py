@@ -7,24 +7,23 @@ import numpy as np
 import pandas as pd
 import pathlib
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import KFold
 from sklearn.metrics import f1_score
 import sys
 import matplotlib.pyplot as plt
 import os
 import argparse
-from joblib import dump
 from tqdm import tqdm
 from imblearn.under_sampling import RandomUnderSampler
 
-from utils import plot_heatmap, str2bool, saveresults
+from utils import plot_heatmap, str2bool, saveresults, updateboxplotsCSV
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--path", type=str, help="relative path in which there are the files to analyze")
+    parser.add_argument("-p", "--path", type=str, help="Absolute path in which there are the files to analyze")
     parser.add_argument("-s", "--shuffle", type=str2bool, nargs='?', const=True, default=False, help="'yes' to enable shuffling, 'no' otherwise")
     parser.add_argument("-r", "--seed", type=int, default=42, help="Seed used in the random generator for the selection of nodes")
-    parser.add_argument("-v", "--savepath", type=str, default="results/", help="relative path of the folder in which to save the experiment results")
+    parser.add_argument("-v", "--savepath", type=str, default="results/", help="Absolute path of the folder in which to save the experiment results")
+    parser.add_argument("-d", "--sumpath", type=str, default="./boxplots", help="Path in which CSVs summary for boxplots will be stored")
     parser.add_argument("-a", "--annotations", type=str2bool, nargs='?', const=True, default=True, help="'yes' to annotate each cell of the heatmap, 'no' otherwise")
     parser.add_argument("-t", "--title", type=str, default="", help="Title to give to the heatmap generated")
     parser.add_argument("-k", "--sample", type=int, default=4, help="How many nodes to randomly take from the list of available nodes")
@@ -37,11 +36,12 @@ if __name__ == '__main__':
     random.seed(args.seed)
 
     here = pathlib.Path(__file__).parent #path of this script
-    csvdir = here.joinpath(args.path) #get the directory in which there are the files to analyze
-    resultsfile = here.joinpath(args.savepath).joinpath("classification_results.csv")
-    trainfile = here.joinpath(args.savepath).joinpath("trainingnodes.csv")
-    modelfile = here.joinpath(args.savepath).joinpath("model.joblib")
-    summarypng = here.joinpath(args.savepath).joinpath("summary.png")
+    csvdir = pathlib.Path(args.path) #get the directory in which there are the files to analyze
+    sumpath = pathlib.Path(args.sumpath)
+    resultsfile = pathlib.Path(args.savepath).joinpath("classification_results.csv")
+    trainfile = pathlib.Path(args.savepath).joinpath("trainingnodes.csv")
+    #modelfile = here.joinpath(args.savepath).joinpath("model.joblib")
+    summarypng = pathlib.Path(args.savepath).joinpath("summary.png")
 
     experiments_scores = OrderedDict()
 
@@ -55,6 +55,8 @@ if __name__ == '__main__':
 
     #get training nodes names from filepath
     trainnames = map(lambda x: str(x).split('/')[-1].split('_')[0], trainnodes)
+
+    num_train = len(trainnodes)
 
     tf = pd.DataFrame(trainnames)
     #save nodes used as training
@@ -124,7 +126,7 @@ if __name__ == '__main__':
     clf.fit(X, y)
     del X
     del y
-    dump(clf, modelfile)
+    #dump(clf, modelfile)
 
     clsResults = OrderedDict()
 
@@ -172,3 +174,7 @@ if __name__ == '__main__':
 
     saveresults(clsResults, keys, resultsfile)
     plot_heatmap(args.title, clsResults, keys, summarypng, args.annotations)
+
+    #for each fault, update a CSV containing the fault scores for each node and the number of nodes used as training
+    for col in keys:
+        updateboxplotsCSV(resultsfile, col, sumpath, num_train)
