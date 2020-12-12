@@ -68,6 +68,7 @@ def plot_heatmap(title, vDict, columns, savepath, annotation=True):
     sns.heatmap(df, annot=annotation, fmt=".2f", linewidths=.5, ax=ax, cmap=sns.cm.rocket_r, square=True, vmin=0, vmax=1)
     plt.yticks(rotation=0)
     fig.savefig(savepath, bbox_inches="tight")
+    plt.close()
 
 def saveresults(rDict, columns, savepath):
     '''saves the classification results to CSV'''
@@ -99,3 +100,4 @@ def summaryboxplot(readpath, column, savepath, label, title):
     ax.set_title(title)
     plt.draw()
     plt.savefig(saveimg, bbox_inches="tight")
+    plt.close()
