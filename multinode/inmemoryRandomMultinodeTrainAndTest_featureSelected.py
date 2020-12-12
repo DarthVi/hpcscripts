@@ -121,11 +121,11 @@ if __name__ == '__main__':
         FP_path.mkdir(parents=True, exist_ok=True)
         FN_path.mkdir(parents=True, exist_ok=True)
 
-        fscore_path.joinpath("boxplotcsv/").mkdir(parents=True, exist_ok=True)
-        sensitivity_path.joinpath("boxplotcsv/").mkdir(parents=True, exist_ok=True)
-        specificity_path.joinpath("boxplotcsv/").mkdir(parents=True, exist_ok=True)
-        FP_path.joinpath("boxplotcsv/").mkdir(parents=True, exist_ok=True)
-        FN_path.joinpath("boxplotcsv/").mkdir(parents=True, exist_ok=True)
+        savepath.joinpath("boxplotcsv/fscore").mkdir(parents=True, exist_ok=True)
+        savepath.joinpath("boxplotcsv/sensitivity").mkdir(parents=True, exist_ok=True)
+        savepath.joinpath("boxplotcsv/specificity").mkdir(parents=True, exist_ok=True)
+        savepath.joinpath("boxplotcsv/FP_rate").mkdir(parents=True, exist_ok=True)
+        savepath.joinpath("boxplotcsv/FN_rate").mkdir(parents=True, exist_ok=True)
 
         num_train = i + 1
         print("Experiment with %d training nodes"%(num_train))
@@ -251,20 +251,18 @@ if __name__ == '__main__':
         plot_heatmap("False Negative rate", FN_scores, keys, FN_path.joinpath("summary.png"), args.annotations)
 
         for col in keys:
-            updateboxplotsCSV(fscore_path.joinpath("classification_results.csv"), col, fscore_path.joinpath("boxplotcsv/"), num_train)
-            updateboxplotsCSV(sensitivity_path.joinpath("classification_results.csv"), col, sensitivity_path.joinpath("boxplotcsv/"), num_train)
-            updateboxplotsCSV(specificity_path.joinpath("classification_results.csv"), col, specificity_path.joinpath("boxplotcsv/"), num_train)
-            updateboxplotsCSV(FP_path.joinpath("classification_results.csv"), col, FP_path.joinpath("boxplotcsv/"), num_train)
-            updateboxplotsCSV(FN_path.joinpath("classification_results.csv"), col, FN_path.joinpath("boxplotcsv/"), num_train)
+            updateboxplotsCSV(fscore_path.joinpath("classification_results.csv"), col, savepath.joinpath("boxplotcsv/fscore"), num_train)
+            updateboxplotsCSV(sensitivity_path.joinpath("classification_results.csv"), col, savepath.joinpath("boxplotcsv/sensitivity"), num_train)
+            updateboxplotsCSV(specificity_path.joinpath("classification_results.csv"), col, savepath.joinpath("boxplotcsv/specificity"), num_train)
+            updateboxplotsCSV(FP_path.joinpath("classification_results.csv"), col, savepath.joinpath("boxplotcsv/FP_rate"), num_train)
+            updateboxplotsCSV(FN_path.joinpath("classification_results.csv"), col, savepath.joinpath("boxplotcsv/FN_rate"), num_train)
 
         etime = time.time()
         print("Training on %d nodes took %f seconds"%(num_train, etime-stime))
 
-    for i in range(args.maxnumsample):
-        spath = savepath.joinpath("RN" + str(i+1) + "f")
-        for k in keys:
-            summaryboxplot(spath.joinpath("fscore/boxplotcsv"), k, spath.joinpath("fscore/boxplotcsv"), 'num_train', k + ' F1-scores')
-            summaryboxplot(spath.joinpath("sensitivity/boxplotcsv"), k, spath.joinpath("sensitivity/boxplotcsv"), 'num_train', k + ' sensitivity')
-            summaryboxplot(spath.joinpath("specificity/boxplotcsv"), k, spath.joinpath("specificity/boxplotcsv"), 'num_train', k + ' specificity')
-            summaryboxplot(spath.joinpath("FP_score/boxplotcsv"), k, spath.joinpath("FP_score/boxplotcsv"), 'num_train', k + ' FP_rate')
-            summaryboxplot(spath.joinpath("FN_score/boxplotcsv"), k, spath.joinpath("FN_score/boxplotcsv"), 'num_train', k + ' FN_rate')
+    for k in keys:
+        summaryboxplot(savepath.joinpath("boxplotcsv/fscore"), k, savepath.joinpath("boxplotcsv/fscore"), 'num_train', k + ' F1-scores')
+        summaryboxplot(savepath.joinpath("boxplotcsv/sensitivity"), k, savepath.joinpath("boxplotcsv/sensitivity"), 'num_train', k + ' sensitivity')
+        summaryboxplot(savepath.joinpath("boxplotcsv/specificity"), k, savepath.joinpath("boxplotcsv/specificity"), 'num_train', k + ' specificity')
+        summaryboxplot(savepath.joinpath("boxplotcsv/FP_rate"), k, savepath.joinpath("boxplotcsv/FP_rate"), 'num_train', k + ' FP_rate')
+        summaryboxplot(savepath.joinpath("boxplotcsv/FN_rate"), k, savepath.joinpath("boxplotcsv/FN_rate"), 'num_train', k + ' FN_rate')
