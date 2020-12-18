@@ -5,7 +5,7 @@ import numpy as np
 import plotly.express as px
 from scipy.spatial import distance
 from sklearn.preprocessing import LabelEncoder
-from sklearn.mixture import BayesianGaussianMixture
+from sklearn.mixture import GaussianMixture
 from copy import deepcopy
 
 def mahalanobis(u, v, C):
@@ -92,10 +92,10 @@ def plot_scatter(data, columns, cluster_str, outlier_str):
     st.plotly_chart(fig)
 
 @st.cache(suppress_st_warning=True) 
-def compute_BGMM(data, n_components, column1, column2, column3):
+def compute_GMM(data, n_components, column1, column2, column3):
     X = data.drop(['nodename'], axis=1).to_numpy()
 
-    bgmm = BayesianGaussianMixture(n_components=n_components, random_state=42)
+    bgmm = GaussianMixture(n_components=n_components, random_state=42)
 
     labels = bgmm.fit(X).predict(X)
     distances = get_mahlanobis_distances(X, bgmm, labels)
@@ -180,14 +180,19 @@ if __name__ == '__main__':
     num_files = len(nodefiles)
 
     n_components = st.slider("Select the number of components for the BGMM algorithm", min_value=1, max_value=num_files, value=10, step=1)
-    threshold = st.number_input("Threshold to use for the outlier detection via Mahalanobis distance", step=0.00000001, format="%f", value=2.0)
+    detect_outliers = st.radio("Detect outliers?", ('yes', 'no'), index=1)
+    if detect_outliers == 'yes':
+        threshold = st.number_input("Threshold to use for the outlier detection via Mahalanobis distance", step=0.00000001, format="%f", value=2.0)
+    else:
+        threshold = np.inf
 
     if st.button("Run"):
         nodefiles = sorted(nodefiles, key=lambda x: int(x.stem[1:]))
 
         smoothed_df = smooth_data(nodefiles, [col1, col2, col3], fault_label_selected, app_label_selected)
 
-        df = compute_BGMM(smoothed_df, n_components, col1, col2, col3)
+        df = compute_GMM(smoothed_df, n_components, col1, col2, col3)
+
         #mark the outliers in the data
         df_marked = mark_outliers(deepcopy(df), threshold)
 
