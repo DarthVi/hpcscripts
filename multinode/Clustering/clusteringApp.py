@@ -12,6 +12,29 @@ def mahalanobis(u, v, C):
     CI = np.linalg.inv(C)
     return distance.mahalanobis(u, v, CI)
 
+@st.cache(suppress_st_warning=True)
+def saveontextfile(strlst, path):
+    with open(path, 'w') as out:
+        for s in strlst:
+            out.write(s + '\n')
+
+@st.cache(suppress_st_warning=True)
+def saveoutlierthreshold(value, path):
+    with open(path, 'w') as out:
+        if value != np.inf:
+            out.write("{:.8f}\n".format(value))
+        else:
+            out.write(str(np.inf)+"\n")
+
+@st.cache(suppress_st_warning=True)
+def savefigure(fig, path):
+    fig.update_layout(margin=dict(l=0,r=0,t=0,b=0))
+    fig.write_image(path)
+
+@st.cache(suppress_st_warning=True)
+def savedataframe(df, path):
+    df.to_csv(path, header=True, index=True)
+
 @st.cache(suppress_st_warning=True) 
 def get_mahlanobis_distances(data, mixture_model, labs):
     #distances = [mahalanobis(x, mixture_model.means_[mixture_model.predict([x])[0]], mixture_model.covariances_[mixture_model.predict([x])[0]]) for x in data]
@@ -88,8 +111,9 @@ def plot_scatter(data, columns, cluster_str, outlier_str):
         else:
             fig.data[i].marker.symbol = 'circle'
 
-    #fig.update_layout(width=500, height=500)
+    #fig.update_layout(margin=dict(l=5,r=5,t=5,b=5))
     st.plotly_chart(fig)
+    return fig
 
 @st.cache(suppress_st_warning=True) 
 def compute_GMM(data, n_components, column1, column2, column3):
@@ -171,9 +195,15 @@ if __name__ == '__main__':
     app_selected = st.multiselect("Which applications?", app_keys, default=app_keys)
     app_label_selected = [applications[x] for x in app_selected]
 
-     #get folder in which CSV data of HPC nodes are stored
+    #get folder in which CSV data of HPC nodes are stored
     folderPath = st.text_input('Enter folder path:')
     csvPath = pathlib.Path(folderPath)
+
+    here = pathlib.Path(__file__).parent
+    defaultSavepath = here.joinpath("results")
+    #get the folder path in which to save the results
+    saveP = st.text_input('Enter the folder in which to save the results:', value=str(defaultSavepath))
+    savepath = pathlib.Path(saveP)
 
     #get CSV filepath list
     nodefiles = list(csvPath.glob("*.csv"))
@@ -203,7 +233,7 @@ if __name__ == '__main__':
 
         df_marked = order_dataframe_by_cluster(df_marked)
 
-        plot_scatter(df_marked, [col1, col2, col3], 'cluster', 'outlier')
+        figure = plot_scatter(df_marked, [col1, col2, col3], 'cluster', 'outlier')
 
         st.subheader("Resulting dataframe after clustering")
         st.write(df_marked)
@@ -212,3 +242,12 @@ if __name__ == '__main__':
 
         st.subheader("Prototypes for each cluster")
         st.write(prototype_df)
+
+        savepath.mkdir(parents=True, exist_ok=True)
+        saveontextfile(fault_selected, savepath.joinpath("fault_selected.txt"))
+        saveontextfile(app_selected, savepath.joinpath("app_selected.txt"))
+        saveontextfile([col1, col2, col3], savepath.joinpath("col_selected.txt"))
+        saveoutlierthreshold(threshold, savepath.joinpath("outlier_threshold.txt"))
+        savefigure(deepcopy(figure), str(savepath.joinpath("scatter_plot.png")))
+        savedataframe(df_marked, savepath.joinpath("clustered_df.csv"))
+        savedataframe(prototype_df, savepath.joinpath("candidate_nodes.csv"))
