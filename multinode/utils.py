@@ -70,6 +70,21 @@ def plot_heatmap(title, vDict, columns, savepath, annotation=True):
     fig.savefig(savepath, bbox_inches="tight")
     plt.close()
 
+def plot_heatmap_light(title, vDict, columns, savepath, annotation=True):
+    df = pd.DataFrame(vDict.values(), columns=columns, index=vDict.keys())
+    df = df.applymap(lambda x: truncate(x, 2))
+    if len(vDict) <= 6:
+        figsize = (9, 6)
+    else:
+        figsize = (9, len(vDict)//1.5)
+    # Draw a heatmap with the numeric values in each cell
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.set_title(title)
+    sns.heatmap(df, annot=annotation, fmt=".2f", linewidths=.5, ax=ax, cmap=sns.cm.rocket, square=True, vmin=0, vmax=1)
+    plt.yticks(rotation=0)
+    fig.savefig(savepath, bbox_inches="tight")
+    plt.close()
+
 def saveresults(rDict, columns, savepath):
     '''saves the classification results to CSV'''
     df = pd.DataFrame(rDict.values(), columns=columns, index=rDict.keys())
