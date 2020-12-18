@@ -6,6 +6,8 @@ import plotly.express as px
 from scipy.spatial import distance
 from sklearn.preprocessing import LabelEncoder
 from sklearn.mixture import GaussianMixture
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 from copy import deepcopy
 
 def mahalanobis(u, v, C):
@@ -40,6 +42,58 @@ def get_mahlanobis_distances(data, mixture_model, labs):
     #distances = [mahalanobis(x, mixture_model.means_[mixture_model.predict([x])[0]], mixture_model.covariances_[mixture_model.predict([x])[0]]) for x in data]
     distances = [mahalanobis(x, mixture_model.means_[l], mixture_model.covariances_[l]) for x,l in zip(data, labs)]
     return distances
+
+@st.cache(suppress_st_warning=True)
+def smooth_data_PCA(files, pcamodel, faults, apps):
+    my_bar = st.progress(0)
+    metriclist = list()
+
+    meanlist = list()
+    files_len = len(files)
+    
+    with st.spinner('Wait for computation...'):
+        for i,file in enumerate(files):
+            #read only the columns we are interested in
+            n = pd.read_csv(file, index_col=0, parse_dates=True, header=0)
+            #initialize metric list if this is the first file processed
+            if not metriclist:
+                metriclist = list(n.columns)
+                metriclist.remove('faultLabel')
+                metriclist.remove('applicationLabel')
+
+            #save faultLabels and applicationLabel infos
+            labels = n[['faultLabel', 'applicationLabel']].reset_index(drop=True)
+            #drop the fault label
+            n.drop(['faultLabel', 'applicationLabel'], axis=1, inplace=True)
+            #reorder columns and get numpy values
+            n = n[metriclist].to_numpy()
+            n = StandardScaler().fit_transform(n)
+            #perform PCA
+            n = pcamodel.fit_transform(n)
+            n = pd.DataFrame(data = n, columns = ['pc1', 'pc2', 'pc3'])
+            #attach again label infos
+            n = pd.concat([n, labels], axis=1)
+            #select only the data relative to the faults we are interested in
+            n = n[n['faultLabel'].isin(faults)]
+            #select only the data relative to the applications we are interested in
+            n = n[n['applicationLabel'].isin(apps)]
+
+            #drop again labels
+            n.drop(['faultLabel', 'applicationLabel'], axis=1, inplace=True)
+
+            #get the mean of every column, convert Series to dataframe and transpose
+            n = n.mean().to_frame().T
+
+            #trick to insert nodename as first column
+            n['nodename'] = file.stem
+            nodename = n.pop('nodename')
+            n.insert(0, 'nodename', nodename)
+            meanlist.append(n)
+            my_bar.progress((i+1)/files_len) 
+
+    df = pd.concat(meanlist, axis=0).reset_index(drop=True)
+    my_bar.empty()
+    return df
 
 @st.cache(suppress_st_warning=True) 
 def smooth_data(files, columns, faults, apps):
@@ -179,11 +233,17 @@ applications = {
 if __name__ == '__main__':
     st.title("Clustering HPC nodes")
 
-    #select metrics we are interested in for clustering
-    st.write("Select 3 different metrics to consider for the clustering")
-    col1 = st.selectbox("Which metric on x?", important_columns)
-    col2 = st.selectbox("Which metric on y?", important_columns)
-    col3 = st.selectbox("Which metric on z?", important_columns)
+    method = st.radio("How to select columns:", ("PCA", "manually"), index=1)
+    if method == 'manually':
+        #select metrics we are interested in for clustering
+        st.write("Select 3 different metrics to consider for the clustering")
+        col1 = st.selectbox("Which metric on x?", important_columns)
+        col2 = st.selectbox("Which metric on y?", important_columns)
+        col3 = st.selectbox("Which metric on z?", important_columns)
+    else:
+        col1 = 'pc1'
+        col2 = 'pc2'
+        col3 = 'pc3'
 
     #select the which batch of data to consider (faulty or non faulty)
     st.write("Select the fault data to consider")
@@ -209,7 +269,7 @@ if __name__ == '__main__':
     nodefiles = list(csvPath.glob("*.csv"))
     num_files = len(nodefiles)
 
-    n_components = st.slider("Select the number of components for the BGMM algorithm", min_value=1, max_value=num_files, value=10, step=1)
+    n_components = st.slider("Select the number of components for the GMM algorithm", min_value=1, max_value=num_files, value=10, step=1)
     detect_outliers = st.radio("Detect outliers?", ('yes', 'no'), index=1)
     if detect_outliers == 'yes':
         threshold = st.number_input("Threshold to use for the outlier detection via Mahalanobis distance", step=0.00000001, format="%f", value=2.0)
@@ -219,7 +279,13 @@ if __name__ == '__main__':
     if st.button("Run"):
         nodefiles = sorted(nodefiles, key=lambda x: int(x.stem[1:]))
 
-        smoothed_df = smooth_data(nodefiles, [col1, col2, col3], fault_label_selected, app_label_selected)
+        if method == 'manually':
+            smoothed_df = smooth_data(nodefiles, [col1, col2, col3], fault_label_selected, app_label_selected)
+            #r_covar = 1e-6
+        else:
+            pca = PCA(n_components=3)
+            smoothed_df = smooth_data_PCA(nodefiles, pca, fault_label_selected, app_label_selected)
+            #r_covar = 1e-2
 
         df = compute_GMM(smoothed_df, n_components, col1, col2, col3)
 
