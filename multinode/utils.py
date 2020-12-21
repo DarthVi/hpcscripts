@@ -116,3 +116,13 @@ def summaryboxplot(readpath, column, savepath, label, title):
     plt.draw()
     plt.savefig(saveimg, bbox_inches="tight")
     plt.close()
+
+def scoreboxplot(readpath, savepath, title):
+    bf = pd.read_csv(readpath, header=0, index_col=0)
+    plt.figure(figsize=(10, 6))
+    ax = sns.boxplot(data=bf)
+    ax.set(ylim=(0.0, 1.0))
+    ax.set_title(title)
+    plt.draw()
+    plt.savefig(savepath, bbox_inches="tight")
+    plt.close()
