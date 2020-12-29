@@ -1,4 +1,5 @@
 import pathlib
+import time
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -132,6 +133,48 @@ def smooth_data(files, columns, faults, apps):
     my_bar.empty()
     return df
 
+@st.cache(suppress_st_warning=True) 
+def smooth_data_halves(files, columns, faults, apps):
+    my_bar = st.progress(0)
+    cols_to_load = columns + ['faultLabel', 'applicationLabel']
+
+    meanlist = list()
+    files_len = len(files)
+    
+    with st.spinner('Wait for computation...'):
+        for i,file in enumerate(files):
+            #read only the columns we are interested in
+            n = pd.read_csv(file, usecols=cols_to_load, header=0)
+
+            #divide node data in half
+            half_len = int(len(n)/2)
+            halves = [n.iloc[:half_len, :], n.iloc[half_len:, :]]
+            for j,d in enumerate(halves):
+                #select only the data relative to the faults we are interested in
+                d = d[d['faultLabel'].isin(faults)]
+                #select only the data relative to the applications we are interested in
+                d = d[d['applicationLabel'].isin(apps)]
+                
+                #drop the fault label
+                d.drop(['faultLabel', 'applicationLabel'], axis=1, inplace=True)
+
+                #reorder columns
+                d = d[columns]
+
+                #get the mean of every column, convert Series to dataframe and transpose
+                d = d.mean().to_frame().T
+
+                #trick to insert nodename as first column
+                d['nodename'] = file.stem + '_' + str(j+1)
+                nodename = d.pop('nodename')
+                d.insert(0, 'nodename', nodename)
+                meanlist.append(d)
+            my_bar.progress((i+1)/files_len) 
+
+    df = pd.concat(meanlist, axis=0).reset_index(drop=True)
+    my_bar.empty()
+    return df
+
 
 def mark_outliers(data, threshold):
     data.loc[df['distance'] > threshold, 'cluster'] = 'outlier'
@@ -203,7 +246,8 @@ def order_dataframe_by_cluster(data):
 
 def get_prototypes(data):
     data = data[data['cluster'] != 'outlier']
-    data = data.groupby('cluster').min()
+    idx = data.groupby(['cluster'])['distance'].transform(min) == data['distance']
+    data = data[idx]
     return data
 
 important_columns = ["thp_fault_alloc",
@@ -233,13 +277,18 @@ applications = {
 if __name__ == '__main__':
     st.title("Clustering HPC nodes")
 
-    method = st.radio("How to select columns:", ("PCA", "manually"), index=1)
-    if method == 'manually':
+    method = st.radio("How to select columns:", ("PCA", "select manually", "type manually"), index=1)
+    if method == 'select manually':
         #select metrics we are interested in for clustering
         st.write("Select 3 different metrics to consider for the clustering")
         col1 = st.selectbox("Which metric on x?", important_columns)
         col2 = st.selectbox("Which metric on y?", important_columns)
         col3 = st.selectbox("Which metric on z?", important_columns)
+    elif method == "type manually":
+        st.write("Type 3 different metrics to consider for the clustering")
+        col1 = st.text_input("Which metrics on x?")
+        col2 = st.text_input("Which metrics on y?")
+        col3 = st.text_input("Which metrics on z?")
     else:
         col1 = 'pc1'
         col2 = 'pc2'
@@ -267,7 +316,25 @@ if __name__ == '__main__':
 
     #get CSV filepath list
     nodefiles = list(csvPath.glob("*.csv"))
-    num_files = len(nodefiles)
+    nodefiles = sorted(nodefiles, key=lambda x: int(x.stem[1:]))
+    nodenames = list(map(lambda x: x.stem, nodefiles))
+
+    ranged_clustering = st.radio("Select only a subset of nodes for clustering?", ('yes', 'no'), index=1)
+    lower_limit = -np.inf
+    upper_limit = np.inf
+    if ranged_clustering == 'yes':
+        lower_limit_name = st.selectbox("Lower limit", nodenames)
+        upper_limit_name = st.selectbox("Upper limit", nodenames)
+        lower_limit = int(lower_limit_name[1:])
+        upper_limit = int(upper_limit_name[1:])
+        selectedfiles = list(filter(lambda x: lower_limit <= int(x.stem[1:]) <= upper_limit, nodefiles))
+    else:
+        selectedfiles = nodefiles    
+    num_files = len(selectedfiles)
+
+    separate_halves = st.radio("Separate each of the two half of a each node?", ('yes', 'no'), index=1)
+    if separate_halves == 'yes':
+        num_files *= 2
 
     n_components = st.slider("Select the number of components for the GMM algorithm", min_value=1, max_value=num_files, value=10, step=1)
     detect_outliers = st.radio("Detect outliers?", ('yes', 'no'), index=1)
@@ -277,14 +344,16 @@ if __name__ == '__main__':
         threshold = np.inf
 
     if st.button("Run"):
-        nodefiles = sorted(nodefiles, key=lambda x: int(x.stem[1:]))
-
-        if method == 'manually':
-            smoothed_df = smooth_data(nodefiles, [col1, col2, col3], fault_label_selected, app_label_selected)
+        stime = time.time()
+        if method == 'select manually' or 'type manually':
+            if separate_halves == 'no':
+                smoothed_df = smooth_data(selectedfiles, [col1, col2, col3], fault_label_selected, app_label_selected)
+            else:
+                smoothed_df = smooth_data_halves(selectedfiles, [col1, col2, col3], fault_label_selected, app_label_selected)
             #r_covar = 1e-6
         else:
             pca = PCA(n_components=3)
-            smoothed_df = smooth_data_PCA(nodefiles, pca, fault_label_selected, app_label_selected)
+            smoothed_df = smooth_data_PCA(selectedfiles, pca, fault_label_selected, app_label_selected)
             #r_covar = 1e-2
 
         df = compute_GMM(smoothed_df, n_components, col1, col2, col3)
@@ -308,11 +377,15 @@ if __name__ == '__main__':
 
         st.subheader("Prototypes for each cluster")
         st.write(prototype_df)
+        etime = time.time()
+        st.write("Clustering took this amount of seconds: ", (etime - stime))
 
         savepath.mkdir(parents=True, exist_ok=True)
         saveontextfile(fault_selected, savepath.joinpath("fault_selected.txt"))
         saveontextfile(app_selected, savepath.joinpath("app_selected.txt"))
         saveontextfile([col1, col2, col3], savepath.joinpath("col_selected.txt"))
+        saveontextfile([ranged_clustering, str(lower_limit), str(upper_limit)], savepath.joinpath("ranged_clustering.txt"))
+        saveontextfile([separate_halves], savepath.joinpath("separate_halves.txt"))
         saveoutlierthreshold(threshold, savepath.joinpath("outlier_threshold.txt"))
         savefigure(deepcopy(figure), str(savepath.joinpath("scatter_plot.png")))
         savedataframe(df_marked, savepath.joinpath("clustered_df.csv"))

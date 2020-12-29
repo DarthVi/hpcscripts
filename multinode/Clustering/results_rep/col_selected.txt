@@ -1,3 +1,0 @@
-thp_fault_alloc
-instructions.max
-power
