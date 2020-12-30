@@ -1,0 +1,3 @@
+cache-misses.min
+instructions.max
+power
