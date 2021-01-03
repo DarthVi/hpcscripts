@@ -130,13 +130,13 @@ def scoreboxplot(readpath, savepath, title):
 def grouped_scoreboxplot(readpath, savepath, baseline_path, title):
     bf = pd.read_csv(readpath, header=0, index_col=0)
     basedf = pd.read_csv(baseline_path, header=0, index_col=0)
-    bf_melt = pd.melt(bf, value_vars=bf.columns)
-    basedf_melt = pd.melt(basedf, value_vars=basedf.columns)
+    bf_melt = pd.melt(bf, value_vars=bf.columns, var_name="fault")
+    basedf_melt = pd.melt(basedf, value_vars=basedf.columns, var_name="fault")
     bf_melt['singlenode'] = 'no'
     basedf_melt['singlenode'] = 'yes'
     fdf = pd.concat([bf_melt, basedf_melt], axis=0)
     plt.figure(figsize=(10, 6))
-    ax = sns.boxplot(data=fdf, x='variable', y='value', hue='singlenode')
+    ax = sns.boxplot(data=fdf, x='fault', y='value', hue='singlenode')
     ax.set(ylim=(0.0, 1.0))
     ax.set_title(title)
     plt.draw()

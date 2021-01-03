@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument("-e", "--featfile", type=str, default="./RFEFile.txt", help="Path of the feature list file")
     parser.add_argument("-f", "--step", type=int, default=1, help="Sampling used to read the training CSVs, that is how many lines to skip before picking up an element")
     parser.add_argument("-g", "--balancetest", type=str2bool, nargs='?', const=True, default=True, help="'yes' to balance the test set, 'no' otheriwse")
+    parser.add_argument("-n", "--balancetrain", type=str2bool, nargs='?', const=True, default=True, help="'yes' to balance the training nodes, 'no' otherwise")
     parser.add_argument("-i", "--feattype", type=str, default="rfe", help="'rfe' to read from RFE file, 'dt' to read from dt-like file")
     parser.add_argument("-l", "--numfeat", type=int, default=100, help="Number of features to use when selecting them via DT file")
     args = parser.parse_args()
@@ -54,6 +55,9 @@ if __name__ == '__main__':
 
     if args.balancetest == False:
         print("Warning: class balancing will not be performed on the test set")
+
+    if args.balancetrain == False:
+        print("Warning: class balancing will not be performed on the training nodes")
 
     np.random.seed(args.seed)
     random.seed(args.seed)
@@ -128,7 +132,8 @@ if __name__ == '__main__':
         X = X.to_numpy()
         del data
         #we do class balancing right here in the loop and not after, in order to save memory
-        X, y = rus.fit_resample(X, y)
+        if args.balancetrain == True:
+            X, y = rus.fit_resample(X, y)
         lX.append(X)
         ly.append(y)
         del X
