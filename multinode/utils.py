@@ -1,5 +1,6 @@
 from collections import Counter
 import re
+import os
 
 import pandas as pd
 import numpy as np
@@ -90,6 +91,12 @@ def saveresults(rDict, columns, savepath):
     df = pd.DataFrame(rDict.values(), columns=columns, index=rDict.keys())
     df.to_csv(savepath, header=True, index=True)
 
+def appendresults(rDict, columns, savepath):
+    '''saves the classification results to CSV'''
+    df = pd.DataFrame(rDict.values(), columns=columns, index=rDict.keys())
+    useHeader = not os.path.exists(str(savepath))
+    df.to_csv(savepath, mode='a', header=useHeader, index=True)
+
 #for each fault, update a CSV containing the fault scores for each node and the number of nodes used as training
 def updateboxplotsCSV(dfpath, dfcolumn, savepath, numtrain, numrun=None):
     '''saves a CSV in the format that will be useful to later plot some boxplots about the F1-scores'''
@@ -137,6 +144,25 @@ def grouped_scoreboxplot(readpath, savepath, baseline_path, title):
     fdf = pd.concat([bf_melt, basedf_melt], axis=0)
     plt.figure(figsize=(10, 6))
     ax = sns.boxplot(data=fdf, x='fault', y='value', hue='singlenode')
+    ax.set(ylim=(0.0, 1.0))
+    ax.set_title(title)
+    plt.draw()
+    plt.savefig(savepath, bbox_inches="tight")
+    plt.close()
+
+def clustering_grouped_scoreboxplot(readpath, savepath, baseline_path, random_path, title):
+    bf = pd.read_csv(readpath, header=0, index_col=0)
+    basedf = pd.read_csv(baseline_path, header=0, index_col=0)
+    randomdf = pd.read_csv(random_path, header=0, index_col=0)
+    bf_melt = pd.melt(bf, value_vars=bf.columns, var_name="fault")
+    basedf_melt = pd.melt(basedf, value_vars=basedf.columns, var_name="fault")
+    randomdf_melt = pd.melt(randomdf, value_vars=randomdf.columns, var_name="fault")
+    bf_melt['method'] = 'clustering'
+    basedf_melt['method'] = 'singlenode'
+    randomdf_melt['method'] = 'random'
+    fdf = pd.concat([bf_melt, randomdf_melt, basedf_melt], axis=0)
+    plt.figure(figsize=(10, 6))
+    ax = sns.boxplot(data=fdf, x='fault', y='value', hue='method')
     ax.set(ylim=(0.0, 1.0))
     ax.set_title(title)
     plt.draw()
