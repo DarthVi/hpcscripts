@@ -162,9 +162,37 @@ def clustering_grouped_scoreboxplot(readpath, savepath, baseline_path, random_pa
     randomdf_melt['method'] = 'random'
     fdf = pd.concat([bf_melt, randomdf_melt, basedf_melt], axis=0)
     plt.figure(figsize=(10, 6))
-    ax = sns.boxplot(data=fdf, x='fault', y='value', hue='method')
+    ax = sns.boxplot(data=fdf, x='fault', y='value', hue='method', showmeans=True, meanprops={'marker':'o', 'markerfacecolor': 'white', 'markeredgecolor': 'black', 'markersize': '5'})
     ax.set(ylim=(0.0, 1.0))
     ax.set_title(title)
     plt.draw()
     plt.savefig(savepath, bbox_inches="tight")
     plt.close()
+
+def clustering_multirun_overall_boxplot(readpath, savepath, random_path, num_train_nodes, tot_nodes, title):
+    test_range = tot_nodes - num_train_nodes
+    bf = pd.read_csv(readpath, header=0, index_col=0)
+    randomdf = pd.read_csv(random_path, header=0, index_col=0)
+    bf_overall = bf.reset_index(drop=True)['overall'].to_frame()
+    randomdf_overall = randomdf.reset_index(drop=True)['overall'].to_frame()
+    bf_overall['method'] = 'clustering'
+    randomdf_overall['method'] = 'placeholder'
+    start = 0
+    repi = 1
+    stop = test_range - 1
+    repstr = "r" + str(repi)
+    while stop < test_range * 10:
+        randomdf_overall.loc[start:stop, 'method'] = repstr
+        repi = repi + 1
+        repstr = "r" + str(repi)
+        start = stop + 1
+        stop = stop + test_range
+    fdf = pd.concat([bf_overall, randomdf_overall], axis=0)
+    plt.figure(figsize=(10, 6))
+    ax = sns.boxplot(data=fdf, x='method', y='overall', showmeans=True, meanprops={'marker':'o', 'markerfacecolor': 'white', 'markeredgecolor': 'black', 'markersize': '5'})
+    ax.set(ylim=(0.0, 1.0))
+    ax.set_title(title)
+    plt.draw()
+    plt.savefig(savepath, bbox_inches="tight")
+    plt.close()
+

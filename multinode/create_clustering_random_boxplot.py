@@ -9,7 +9,7 @@ if __name__ == '__main__':
     basepath = pathlib.Path(str(sys.argv[2]))
     randompath = pathlib.Path(str(sys.argv[3]))
     parentfolder = dfpath.parent
-    savefile = parentfolder.joinpath("boxplot_clustering_multirunrandom_withbaseline.png")
+    savefile = parentfolder.joinpath("boxplot_clustering_multirunrandom_withbaseline_mean.png")
     title = str(sys.argv[4])
 
     clustering_grouped_scoreboxplot(dfpath, savefile, basepath, randompath, title)
