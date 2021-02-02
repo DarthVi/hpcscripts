@@ -1,9 +1,0 @@
-- Classifier: RandomForestClassifier
-Fault: 0,  F1: 0.837424.
-Fault: 1,  F1: 0.503550.
-Fault: 2,  F1: 0.755594.
-Fault: 3,  F1: 0.243559.
-Fault: 4,  F1: 0.243293.
-Fault: 5,  F1: 0.223427.
-Fault: 6,  F1: 0.960114.
-Fault: 7,  F1: 0.953060.

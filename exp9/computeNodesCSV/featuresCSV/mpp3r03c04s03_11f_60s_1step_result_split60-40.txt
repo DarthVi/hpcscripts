@@ -1,9 +1,0 @@
-- Classifier: Pipeline
-Fault: 0,  F1: 0.193186.
-Fault: 1,  F1: 0.691199.
-Fault: 2,  F1: 0.375031.
-Fault: 3,  F1: 0.713326.
-Fault: 4,  F1: 0.550424.
-Fault: 5,  F1: 0.783287.
-Fault: 6,  F1: 0.480871.
-Fault: 7,  F1: 0.897452.
